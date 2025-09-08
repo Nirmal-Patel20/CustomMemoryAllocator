@@ -2,7 +2,9 @@
 //this file is not compiled or used in any way
 //i will add some examples later when i have built the library a bit more
 #include <iostream>
+#include <allocators/pool_allocator.hpp>
 
 int main() {
-    std::cout << "hello from examples/basic_usage.cpp" << std::endl;
+    greet();
+    return 0;
 }
