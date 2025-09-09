@@ -5,7 +5,7 @@ class AllocatorInterface {
   public:
     virtual ~AllocatorInterface() = default;
 
-    virtual void* allocate(size_t size, size_t alignment = alignof(std::max_align_t)) = 0;
+    virtual void* allocate(size_t size, size_t alignment = alignof(max_align_t)) = 0;
     virtual void deallocate(void* ptr) = 0;
     virtual size_t getAllocatedSize() const = 0;
     virtual void reset() = 0;
