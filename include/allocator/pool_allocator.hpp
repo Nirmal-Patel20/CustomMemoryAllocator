@@ -3,6 +3,9 @@
 
 #include <iostream>
 
-void greet();
+namespace allocator {
+class Pool_Allocator {};
+
+} // namespace allocator
 
 #endif // POOL_ALLOCATOR_HPP

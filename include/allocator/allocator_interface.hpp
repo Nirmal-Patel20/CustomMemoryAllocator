@@ -9,6 +9,12 @@ class AllocatorInterface {
     virtual void deallocate(void *ptr) = 0;
     virtual size_t getAllocatedSize() const = 0;
     virtual void reset() = 0;
+
+    static void *getAlignment(void *ptr, size_t alignment) {
+        uintptr_t addr = reinterpret_cast<uintptr_t>(ptr);
+        auto alignAddr = (addr + alignment - 1) & ~(alignment - 1);
+        return reinterpret_cast<void *>(alignAddr);
+    }
 };
 
 // Adapter class for using AllocatorInterface with standard STL containers.
