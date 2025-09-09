@@ -9,3 +9,4 @@ SpacesInParentheses: false
 SpaceAfterCStyleCast: true
 SortIncludes: true
 NamespaceIndentation: None
+PointerAlignment: Left
