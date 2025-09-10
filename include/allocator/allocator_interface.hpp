@@ -22,11 +22,16 @@ class AllocatorInterface {
     }
 
     static size_t getAlignmentOfNativeType(size_t size) {
-        if (size <= 1) return alignof(uint8_t);
-        if (size <= 2) return alignof(uint16_t);
-        if (size <= 4) return alignof(uint32_t);
-        if (size <= 8) return alignof(uint64_t);
-        if (size <= 16) return 16;
+        if (size <= 1)
+            return alignof(uint8_t);
+        if (size <= 2)
+            return alignof(uint16_t);
+        if (size <= 4)
+            return alignof(uint32_t);
+        if (size <= 8)
+            return alignof(uint64_t);
+        if (size <= 16)
+            return 16;
         return alignof(max_align_t);
     }
 
