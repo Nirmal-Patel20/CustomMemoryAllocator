@@ -5,7 +5,7 @@ class AllocatorInterface {
   public:
     virtual ~AllocatorInterface() = default;
 
-    virtual void* allocate(size_t size, size_t alignment = alignof(max_align_t)) = 0;
+    virtual void* allocate(size_t size, size_t alignment = 0) = 0;
     virtual void deallocate(void* ptr) = 0;
     virtual size_t getAllocatedSize() const = 0;
     virtual void reset() = 0;
@@ -14,6 +14,24 @@ class AllocatorInterface {
         uintptr_t addr = reinterpret_cast<uintptr_t>(ptr);
         auto alignAddr = (addr + alignment - 1) & ~(alignment - 1);
         return reinterpret_cast<void*>(alignAddr);
+    }
+
+    static size_t getAlignedSize(size_t size, size_t alignment) {
+        auto alignedSize = (size + alignment - 1) & ~(alignment - 1);
+        return alignedSize;
+    }
+
+    static size_t getAlignmentOfNativeType(size_t size) {
+        if (size <= 1) return alignof(uint8_t);
+        if (size <= 2) return alignof(uint16_t);
+        if (size <= 4) return alignof(uint32_t);
+        if (size <= 8) return alignof(uint64_t);
+        if (size <= 16) return 16;
+        return alignof(max_align_t);
+    }
+
+    static bool isAlignmentPowerOfTwo(size_t alignment) {
+        return (alignment != 0) && ((alignment & (alignment - 1)) == 0);
     }
 };
 
