@@ -1,8 +1,8 @@
 #include "allocator/pool_allocator.hpp"
 
 allocator::Pool_Allocator::Pool_Allocator(size_t blockSize, size_t initial_capacity,
-                                          size_t alignment, size_t maxGrowCount)
-    : m_blockCount(initial_capacity), m_maxGrowCount(maxGrowCount) {
+                                          size_t alignment, size_t maxPools)
+    : m_blockCount(initial_capacity), m_maxPools(maxPools) {
 
     if (blockSize == 0 || initial_capacity == 0) {
         throw std::invalid_argument("Block size and initial capacity must be greater than zero.");
@@ -14,9 +14,10 @@ allocator::Pool_Allocator::Pool_Allocator(size_t blockSize, size_t initial_capac
         if (!isAlignmentPowerOfTwo(alignment)) {
             throw std::invalid_argument("Alignment must be a power of two.");
         }
-        if (alignment <= getAlignmentOfNativeType(blockSize)) {
-            throw std::invalid_argument(
-                "Alignment must be at least the alignment of the native type.");
+        if (alignof(int) > alignment && alignment <= alignof(max_align_t)) {
+            throw std::invalid_argument("Alignment must be at least between " +
+                                        std::to_string(alignof(int)) + " and " +
+                                        std::to_string(alignof(max_align_t)) + " bytes.");
         }
         if (alignment > blockSize) {
             throw std::invalid_argument("Alignment must be less than or equal to block size.");
@@ -104,9 +105,9 @@ void allocator::Pool_Allocator::allocate_new_pool() {
             allocator::throwAllocationError("Pool_Allocator", "Exceeds maximum capacity(64 MB)");
         }
 
-        if (m_maxGrowCount != 0 && ((pools.size() + 1) > m_maxGrowCount)) {
-            allocator::throwAllocationError("Pool_Allocator",
-                                            "Exceeds maximum count : " + m_maxGrowCount);
+        if (m_maxPools != 0 && ((pools.size() + 1) > m_maxPools)) {
+            allocator::throwAllocationError("Pool_Allocator", "Exceeds maximum pool count : " +
+                                                                  std::to_string(m_maxPools));
         }
     }
 

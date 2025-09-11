@@ -10,7 +10,7 @@ namespace allocator {
 class Pool_Allocator : public AllocatorInterface {
   public:
     explicit Pool_Allocator(size_t blockSize, size_t blockCount, size_t alignment = 0,
-                            size_t maxGrowCount = 0);
+                            size_t maxPools = 0);
     ~Pool_Allocator() override;
 
     virtual void* allocate(size_t size, [[maybe_unused]] size_t alignment = 0) override;
@@ -36,7 +36,7 @@ class Pool_Allocator : public AllocatorInterface {
     size_t m_poolSize;
     std::vector<pool> pools;
     bool m_ownsMemory = false; // check if the allocator owns the memory
-    size_t m_maxGrowCount = 0; // configurable
+    size_t m_maxPools = 0;     // configurable
     static constexpr size_t MAX_CAPACITY = 64ull * 1024 * 1024; // 64 MB hard cap
 };
 
