@@ -1,13 +1,35 @@
 #include "allocator/pool_allocator.hpp"
 
-allocator::Pool_Allocator::Pool_Allocator(size_t m_blockSize, size_t initial_capacity,
-                                          size_t alignment)
-    : m_blockSize(m_blockSize), m_blockCount(initial_capacity), m_Alignment(alignment) {
+allocator::Pool_Allocator::Pool_Allocator(size_t blockSize, size_t initial_capacity,
+                                          size_t alignment, size_t maxGrowCount)
+    : m_blockCount(initial_capacity), m_maxGrowCount(maxGrowCount) {
 
-    std::cout << std::string(40,'-') << std::endl;
-    m_blockSize =
-        ((m_blockSize >= 8) ? m_blockSize : sizeof(void*)); // Ensure minimum size for free list
+    if (blockSize == 0 || initial_capacity == 0) {
+        throw std::invalid_argument("Block size and initial capacity must be greater than zero.");
+    }
+
+    if (alignment == 0) {
+        m_alignment = getAlignmentOfNativeType(blockSize);
+    } else {
+        if (!isAlignmentPowerOfTwo(alignment)) {
+            throw std::invalid_argument("Alignment must be a power of two.");
+        }
+        if (alignment <= getAlignmentOfNativeType(blockSize)) {
+            throw std::invalid_argument(
+                "Alignment must be at least the alignment of the native type.");
+        }
+        if (alignment > blockSize) {
+            throw std::invalid_argument("Alignment must be less than or equal to block size.");
+        }
+        m_alignment = alignment;
+    }
+
+    m_blockSize = getAlignedSize(blockSize, m_alignment);
     m_poolSize = m_blockSize * m_blockCount;
+
+    if (m_poolSize > MAX_CAPACITY) {
+        throw std::invalid_argument("Requested pool size exceeds maximum capacity(64 MB).");
+    }
 
     allocate_new_pool();
 }
@@ -16,10 +38,13 @@ allocator::Pool_Allocator::~Pool_Allocator() {
     pools.clear();
 }
 
-void* allocator::Pool_Allocator::allocate(size_t size,
-                                [[maybe_unused]]  size_t alignment) {
+void* allocator::Pool_Allocator::allocate(size_t size, [[maybe_unused]] size_t alignment) {
     if (size > m_blockSize) {
-        throw std::bad_alloc(); // Requested size exceeds block size
+        allocator::throwAllocationError("Pool_Allocator", "Requested size exceeds block size");
+    }
+
+    if (!m_ownsMemory) {
+        allocator::throwAllocationError("Pool_Allocator", "Allocator has released its memory");
     }
 
     for (auto& p : pools) {
@@ -32,7 +57,9 @@ void* allocator::Pool_Allocator::allocate(size_t size,
             return block;
         }
     }
-    return nullptr;
+
+    allocate_new_pool();
+    return allocate(size, alignment);
 }
 
 void allocator::Pool_Allocator::deallocate(void* ptr) {
@@ -43,6 +70,8 @@ void allocator::Pool_Allocator::deallocate(void* ptr) {
         if (ptr >= start && ptr <= end) {
             *reinterpret_cast<void**>(ptr) = pool.free_list_head;
             pool.free_list_head = ptr;
+            pool.allocated_count--;
+            pool.free_count++;
             return;
         }
     }
@@ -51,32 +80,46 @@ void allocator::Pool_Allocator::deallocate(void* ptr) {
 }
 
 size_t allocator::Pool_Allocator::getAllocatedSize() const {
-    size_t totalAllocatedSize = 0;
-    for(auto& pool : pools){
-        totalAllocatedSize += pool.size;
+    size_t totalAllocated = 0;
+    for (const auto& p : pools) {
+        totalAllocated += p.allocated_count * m_blockSize;
     }
-
-    return totalAllocatedSize;
+    return totalAllocated;
 }
 
 void allocator::Pool_Allocator::reset() {
     pools.clear();
-    m_poolSize = m_blockSize * m_blockCount;
     allocate_new_pool();
+}
+
+void allocator::Pool_Allocator::releaseMemory() {
+    pools.clear();
+    m_ownsMemory = false;
 }
 
 void allocator::Pool_Allocator::allocate_new_pool() {
 
+    if (m_ownsMemory) {
+        if (m_poolSize * (pools.size() + 1) > MAX_CAPACITY) {
+            allocator::throwAllocationError("Pool_Allocator", "Exceeds maximum capacity(64 MB)");
+        }
+
+        if (m_maxGrowCount != 0 && ((pools.size() + 1) > m_maxGrowCount)) {
+            allocator::throwAllocationError("Pool_Allocator",
+                                            "Exceeds maximum count : " + m_maxGrowCount);
+        }
+    }
+
     pool new_pool;
     new_pool.memory = std::make_unique<std::byte[]>(m_poolSize);
+    m_ownsMemory = true;
     new_pool.size = m_poolSize;
 
     // Initialize free list
     for (size_t i = 0; i < m_blockCount; ++i) {
         void* block = new_pool.memory.get() + i * m_blockSize;
-        void* aligned_block = getAlignment(block, m_Alignment); // Ensure alignment
-        *reinterpret_cast<void**>(aligned_block) = new_pool.free_list_head;
-        new_pool.free_list_head = aligned_block;
+        *reinterpret_cast<void**>(block) = new_pool.free_list_head;
+        new_pool.free_list_head = block;
         new_pool.free_count++;
     }
 

@@ -1,6 +1,7 @@
 #ifndef POOL_ALLOCATOR_HPP
 #define POOL_ALLOCATOR_HPP
 
+#include "allocator/allocatorError.hpp"
 #include "allocator/allocator_interface.hpp"
 #include <iostream>
 #include <vector>
@@ -8,14 +9,15 @@
 namespace allocator {
 class Pool_Allocator : public AllocatorInterface {
   public:
-    explicit Pool_Allocator(size_t blockSize, size_t blockCount,
-                            size_t alignment = alignof(std::max_align_t));
+    explicit Pool_Allocator(size_t blockSize, size_t blockCount, size_t alignment = 0,
+                            size_t maxGrowCount = 0);
     ~Pool_Allocator() override;
 
-    virtual void* allocate(size_t size, [[maybe_unused]] size_t alignment = alignof(std::max_align_t)) override;
+    virtual void* allocate(size_t size, [[maybe_unused]] size_t alignment = 0) override;
     virtual void deallocate(void* ptr) override;
     virtual size_t getAllocatedSize() const override;
     virtual void reset() override;
+    void releaseMemory();
 
   private:
     struct pool {
@@ -30,9 +32,12 @@ class Pool_Allocator : public AllocatorInterface {
 
     size_t m_blockSize;
     size_t m_blockCount;
-    size_t m_Alignment;
+    size_t m_alignment;
     size_t m_poolSize;
     std::vector<pool> pools;
+    bool m_ownsMemory = false; // check if the allocator owns the memory
+    size_t m_maxGrowCount = 0; // configurable
+    static constexpr size_t MAX_CAPACITY = 64ull * 1024 * 1024; // 64 MB hard cap
 };
 
 } // namespace allocator
