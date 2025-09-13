@@ -9,7 +9,7 @@ allocator::Pool_Allocator::Pool_Allocator(size_t blockSize, size_t initial_capac
     }
 
     if (alignment == 0) {
-        m_alignment = getAlignmentOfNativeType(blockSize);
+        m_alignment = sizeof(void*); // 8 bytes
     } else {
         if (!isAlignmentPowerOfTwo(alignment)) {
             throw std::invalid_argument("Alignment must be a power of two.");
@@ -18,9 +18,6 @@ allocator::Pool_Allocator::Pool_Allocator(size_t blockSize, size_t initial_capac
             throw std::invalid_argument("Alignment must be at least between " +
                                         std::to_string(alignof(int)) + " and " +
                                         std::to_string(alignof(max_align_t)) + " bytes.");
-        }
-        if (alignment > blockSize) {
-            throw std::invalid_argument("Alignment must be less than or equal to block size.");
         }
         m_alignment = alignment;
     }
@@ -36,7 +33,7 @@ allocator::Pool_Allocator::Pool_Allocator(size_t blockSize, size_t initial_capac
 }
 
 allocator::Pool_Allocator::~Pool_Allocator() {
-    pools.clear();
+    releaseMemory();
 }
 
 void* allocator::Pool_Allocator::allocate(size_t size, [[maybe_unused]] size_t alignment) {
