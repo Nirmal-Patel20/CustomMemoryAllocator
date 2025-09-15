@@ -85,6 +85,10 @@ size_t allocator::Pool_Allocator::getAllocatedSize() const {
     return totalAllocated;
 }
 
+size_t allocator::Pool_Allocator::getObjectSize() const {
+    return m_blockSize;
+}
+
 void allocator::Pool_Allocator::reset() {
     pools.clear();
     allocate_new_pool();

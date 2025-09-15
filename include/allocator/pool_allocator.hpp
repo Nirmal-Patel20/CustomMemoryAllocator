@@ -16,6 +16,7 @@ class Pool_Allocator : public AllocatorInterface {
     virtual void* allocate(size_t size, [[maybe_unused]] size_t alignment = 0) override;
     virtual void deallocate(void* ptr) override;
     virtual size_t getAllocatedSize() const override;
+    virtual size_t getObjectSize() const override;
     virtual void reset() override;
     void releaseMemory();
 
