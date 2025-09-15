@@ -14,9 +14,9 @@ allocator::Pool_Allocator::Pool_Allocator(size_t blockSize, size_t initial_capac
         if (!isAlignmentPowerOfTwo(alignment)) {
             throw std::invalid_argument("Alignment must be a power of two.");
         }
-        if (alignof(int) > alignment && alignment <= alignof(max_align_t)) {
+        if (alignment < alignof(void*) || alignment > alignof(max_align_t)) {
             throw std::invalid_argument("Alignment must be at least between " +
-                                        std::to_string(alignof(int)) + " and " +
+                                        std::to_string(alignof(void*)) + " and " +
                                         std::to_string(alignof(max_align_t)) + " bytes.");
         }
         m_alignment = alignment;
