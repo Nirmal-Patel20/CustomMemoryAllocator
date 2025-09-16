@@ -64,10 +64,14 @@ void pool_allocator_example() {
 
     std::cout << "Released all memory from pool\n";
     std::cout << "Trying to allocate after releaseMemory() should throw error\n";
+
     try {
-        pool.allocate(sizeof(int));
+        int* ptr2 = static_cast<int*>(pool.allocate(sizeof(int)));
+        *ptr2 = 100; // This should not be reached
     } catch (const std::runtime_error& e) {
         std::cout << "Caught expected error: " << e.what() << "\n";
+    } catch (const std::bad_alloc& e) {
+        std::cout << "Caught expected: " << e.what() << "\n";
     }
 
     std::cout << ">>>>>> Example complete. Exiting <<<<<<\n";
