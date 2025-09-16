@@ -3,12 +3,6 @@
 #include <thread>
 #include <vector>
 
-void cleanscreen() {
-    // Clear the console screen
-    std::cout
-        << "\033[2J\033[1;1H"; // ANSI escape code to clear the screen and move cursor to top-left
-}
-
 void pool_allocator_example(); // forward declaration
 
 int main() {
@@ -21,9 +15,7 @@ int main() {
 }
 
 void pool_allocator_example() {
-    cleanscreen();
     std::cout << ">>>>>> Basic usage of Pool allocator <<<<<<\n";
-    std::this_thread::sleep_for(std::chrono::seconds(2)); // Pause for 2 seconds to read the message
 
     // create a pool allocator for int type
     allocator::Pool_Allocator pool(sizeof(int), 100, alignof(int));
@@ -41,22 +33,19 @@ void pool_allocator_example() {
     *allocated_ptrs[1] = 20;
     *allocated_ptrs[2] = 30;
 
-    std::cout << "Allocated integers: " << *allocated_ptrs[0] << ", " << *allocated_ptrs[1] << ", "
-              << *allocated_ptrs[2] << "\n";
-    std::cout << "Allocated size: " << pool.getAllocatedSize() << " bytes\n";
+    std::cout << "Allocated size: " << pool.getAllocatedSize()
+              << " bytes\n"; // this funct dont give pool size but allocated size in pool
     std::cout << "Object size: " << pool.getObjectSize() << " bytes\n";
 
-    pool.deallocate(allocated_ptrs[1]);
-    std::cout << "Deallocated p2\n";
+    pool.deallocate(allocated_ptrs[1]); // deallocate the second integer
+    allocated_ptrs[1] = nullptr;        // mark as nullptr to avoid dangling pointer
     std::cout << "Allocated size after deallocation: " << pool.getAllocatedSize() << " bytes\n";
-    std::this_thread::sleep_for(std::chrono::seconds(4)); // Pause for 4 seconds to read the message
 
-    // reset the pool
-    std::cout << "Pool reset\n";
+    // reset the pool - this will free all allocations
     pool.reset();
 
-    int* ptr = static_cast<int*>(pool.allocate(sizeof(int)));
-    *ptr = 42;
+    std::cout << "Allocated size after reset: " << pool.getAllocatedSize()
+              << " bytes\n"; // should be 0
 
     // release all memory
     // after this the allocator cannot be used again unless we call reset()
@@ -75,5 +64,4 @@ void pool_allocator_example() {
     }
 
     std::cout << ">>>>>> Example complete. Exiting <<<<<<\n";
-    std::this_thread::sleep_for(std::chrono::seconds(2)); // Pause for 2 seconds before exit
 }
