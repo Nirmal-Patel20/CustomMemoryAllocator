@@ -1,3 +1,4 @@
+#include "allocator/allocatorError.hpp"
 #include <memory>
 
 namespace allocator {
@@ -11,6 +12,7 @@ class AllocatorInterface {
     virtual size_t getObjectSize() const = 0;
     virtual void reset() = 0;
 
+  protected:
     static void* getAlignment(void* ptr, size_t alignment) {
         uintptr_t addr = reinterpret_cast<uintptr_t>(ptr);
         auto alignAddr = (addr + alignment - 1) & ~(alignment - 1);
