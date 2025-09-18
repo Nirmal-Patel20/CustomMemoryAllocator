@@ -90,8 +90,23 @@ size_t allocator::Pool_Allocator::getObjectSize() const {
 }
 
 void allocator::Pool_Allocator::reset() {
-    pools.clear();
-    allocate_new_pool();
+    if (m_ownsMemory) {
+        while (pools.size() > 1) {
+            pools.pop_back();
+        }
+
+        auto& last_pool = pools.front();
+        for (size_t i = 0; i < m_blockCount; ++i) {
+            void* block = last_pool.memory.get() + i * m_blockSize;
+            *reinterpret_cast<void**>(block) = last_pool.free_list_head;
+            last_pool.free_list_head = block;
+            last_pool.free_count++;
+        }
+
+        last_pool.allocated_count = 0;
+    } else {
+        allocate_new_pool();
+    }
 }
 
 void allocator::Pool_Allocator::releaseMemory() {
