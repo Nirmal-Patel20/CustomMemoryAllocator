@@ -27,6 +27,7 @@ message(STATUS ">>> Catch2 version: ${Catch2_VERSION} <<<")
 
 add_executable(tests 
         Pool_allocator_tests.cpp
+        stack_allocator_tests.cpp
 )
 
 target_link_libraries(tests 
