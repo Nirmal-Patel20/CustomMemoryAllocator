@@ -1,6 +1,6 @@
-#include "allocator/pool_allocator.hpp"
+#include "allocator/Pool_allocator.hpp"
 
-allocator::Pool_Allocator::Pool_Allocator(size_t blockSize, size_t initial_capacity,
+allocator::pool_allocator::pool_allocator(size_t blockSize, size_t initial_capacity,
                                           size_t alignment, size_t maxPools)
     : m_blockCount(initial_capacity), m_maxPools(maxPools) {
 
@@ -32,17 +32,17 @@ allocator::Pool_Allocator::Pool_Allocator(size_t blockSize, size_t initial_capac
     allocate_new_pool();
 }
 
-allocator::Pool_Allocator::~Pool_Allocator() {
+allocator::pool_allocator::~pool_allocator() {
     releaseMemory();
 }
 
-void* allocator::Pool_Allocator::allocate(size_t size, [[maybe_unused]] size_t alignment) {
+void* allocator::pool_allocator::allocate(size_t size, [[maybe_unused]] size_t alignment) {
     if (size > m_blockSize) {
-        allocator::throwAllocationError("Pool_Allocator", "Requested size exceeds block size");
+        allocator::throwAllocationError("pool_allocator", "Requested size exceeds block size");
     }
 
     if (!m_ownsMemory) {
-        allocator::throwAllocationError("Pool_Allocator", "Allocator has released its memory");
+        allocator::throwAllocationError("pool_allocator", "Allocator has released its memory");
     }
 
     for (auto& p : pools) {
@@ -60,7 +60,7 @@ void* allocator::Pool_Allocator::allocate(size_t size, [[maybe_unused]] size_t a
     return allocate(size, alignment);
 }
 
-void allocator::Pool_Allocator::deallocate(void* ptr) {
+void allocator::pool_allocator::deallocate(void* ptr) {
     for (auto& pool : pools) {
         auto start = pool.memory.get();
         auto end = pool.memory.get() + pool.size;
@@ -77,7 +77,7 @@ void allocator::Pool_Allocator::deallocate(void* ptr) {
     throw std::runtime_error("Pointer does not belong to any pools inside this allocator");
 }
 
-size_t allocator::Pool_Allocator::getAllocatedSize() const {
+size_t allocator::pool_allocator::getAllocatedSize() const {
     size_t totalAllocated = 0;
     for (const auto& p : pools) {
         totalAllocated += p.allocated_count * m_blockSize;
@@ -85,11 +85,11 @@ size_t allocator::Pool_Allocator::getAllocatedSize() const {
     return totalAllocated;
 }
 
-size_t allocator::Pool_Allocator::getObjectSize() const {
+size_t allocator::pool_allocator::getObjectSize() const {
     return m_blockSize;
 }
 
-void allocator::Pool_Allocator::reset() {
+void allocator::pool_allocator::reset() {
     if (m_ownsMemory) {
         while (pools.size() > 1) {
             pools.pop_back();
@@ -109,20 +109,20 @@ void allocator::Pool_Allocator::reset() {
     }
 }
 
-void allocator::Pool_Allocator::releaseMemory() {
+void allocator::pool_allocator::releaseMemory() {
     pools.clear();
     m_ownsMemory = false;
 }
 
-void allocator::Pool_Allocator::allocate_new_pool() {
+void allocator::pool_allocator::allocate_new_pool() {
 
     if (m_ownsMemory) {
         if (m_poolSize * (pools.size() + 1) > MAX_CAPACITY) {
-            allocator::throwAllocationError("Pool_Allocator", "Exceeds maximum capacity(64 MB)");
+            allocator::throwAllocationError("pool_allocator", "Exceeds maximum capacity(64 MB)");
         }
 
         if (m_maxPools != 0 && ((pools.size() + 1) > m_maxPools)) {
-            allocator::throwAllocationError("Pool_Allocator", "Exceeds maximum pool count : " +
+            allocator::throwAllocationError("pool_allocator", "Exceeds maximum pool count : " +
                                                                   std::to_string(m_maxPools));
         }
     }

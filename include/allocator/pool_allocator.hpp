@@ -7,11 +7,11 @@
 #include <vector>
 
 namespace allocator {
-class Pool_Allocator : public AllocatorInterface {
+class pool_allocator : public AllocatorInterface {
   public:
-    explicit Pool_Allocator(size_t blockSize, size_t blockCount, size_t alignment = 0,
+    explicit pool_allocator(size_t blockSize, size_t blockCount, size_t alignment = 0,
                             size_t maxPools = 0);
-    ~Pool_Allocator() override;
+    ~pool_allocator() override;
 
     virtual void* allocate(size_t size, [[maybe_unused]] size_t alignment = 0) override;
     virtual void deallocate(void* ptr) override;

@@ -1,15 +1,12 @@
-#include "allocator/allocatorError.hpp"
 #include "allocator/pool_allocator.hpp"
 #include <algorithm>
 #include <catch2/catch_all.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <random>
 
-// Dummy test case to verify Catch2 is working
-
 // Allocate a block
 TEST_CASE("Allocate and deallocate blocks", "[pool_allocator][basic]") {
-    allocator::Pool_Allocator poolAllocator(32, 1000);
+    allocator::pool_allocator poolAllocator(32, 1000);
     void* ptr1 = poolAllocator.allocate(16);
     REQUIRE(ptr1 != nullptr);
 
@@ -17,9 +14,9 @@ TEST_CASE("Allocate and deallocate blocks", "[pool_allocator][basic]") {
     poolAllocator.deallocate(ptr1);
 }
 
-// Allocate another block
+// Allocate more than one block
 TEST_CASE("Allocate multiple blocks", "[pool_allocator][basic]") {
-    allocator::Pool_Allocator poolAllocator(32, 1000);
+    allocator::pool_allocator poolAllocator(32, 1000);
     void* ptr1 = poolAllocator.allocate(16);
     REQUIRE(ptr1 != nullptr);
     void* ptr2 = poolAllocator.allocate(32);
@@ -32,13 +29,13 @@ TEST_CASE("Allocate multiple blocks", "[pool_allocator][basic]") {
 
 // Attempt to allocate a block larger than the block size
 TEST_CASE("Allocate block larger than block size", "[pool_allocator][basic]") {
-    allocator::Pool_Allocator poolAllocator(32, 1000);
+    allocator::pool_allocator poolAllocator(32, 1000);
     REQUIRE_THROWS_AS(poolAllocator.allocate(64), std::runtime_error);
 }
 
 // Allocate again, should reuse the freed block
 TEST_CASE("Reuse freed blocks", "[pool_allocator][basic]") {
-    allocator::Pool_Allocator poolAllocator(32, 1000);
+    allocator::pool_allocator poolAllocator(32, 1000);
     void* ptr1 = poolAllocator.allocate(16);
     REQUIRE(ptr1 != nullptr);
 
@@ -52,14 +49,14 @@ TEST_CASE("Reuse freed blocks", "[pool_allocator][basic]") {
 
 // Check allocated size (should be equal to pool size)
 TEST_CASE("Check allocated size", "[pool_allocator][basic]") {
-    allocator::Pool_Allocator poolAllocator(32, 1000);
+    allocator::pool_allocator poolAllocator(32, 1000);
     size_t allocatedSize = poolAllocator.getAllocatedSize();
     REQUIRE(allocatedSize == 0); // All blocks should be freed
 }
 
 // Reset the allocator and check allocated size again
 TEST_CASE("Reset pool allocator", "[pool_allocator][basic]") {
-    allocator::Pool_Allocator poolAllocator(32, 1000);
+    allocator::pool_allocator poolAllocator(32, 1000);
     void* ptr1 = poolAllocator.allocate(16);
     REQUIRE(ptr1 != nullptr);
     void* ptr2 = poolAllocator.allocate(16);
@@ -73,7 +70,7 @@ TEST_CASE("Reset pool allocator", "[pool_allocator][basic]") {
 
 // release memory
 TEST_CASE("Release memory and try allocating again", "[pool_allocator][basic]") {
-    allocator::Pool_Allocator poolAllocator(32, 1000);
+    allocator::pool_allocator poolAllocator(32, 1000);
     for (int i = 0; i < 15; i++) {
         void* ptr = poolAllocator.allocate(16);
         REQUIRE(ptr != nullptr);
@@ -87,7 +84,7 @@ TEST_CASE("Release memory and try allocating again", "[pool_allocator][basic]") 
 }
 
 TEST_CASE("check grow beyond initial pool", "[pool_allocator][basic]") {
-    allocator::Pool_Allocator smallPool(32, 2, alignof(max_align_t),
+    allocator::pool_allocator smallPool(32, 2, alignof(max_align_t),
                                         2); // Small pool with 2 pools max
 
     void* ptr1 = smallPool.allocate(16);
@@ -111,25 +108,26 @@ TEST_CASE("check grow beyond initial pool", "[pool_allocator][basic]") {
     smallPool.releaseMemory();
 }
 
+TEST_CASE("try allocating more than max capacity(64 MB)", "[pool_allocator][basic]") {
+    REQUIRE_THROWS_AS(allocator::pool_allocator(32, 65ull * 1024 * 1024), std::invalid_argument);
+}
+
 // Alignment must be power of two
 TEST_CASE("Non power of two alignment", "[pool_allocator][alignment]") {
-    REQUIRE_THROWS_AS(allocator::Pool_Allocator(16, 32, 5),
+    REQUIRE_THROWS_AS(allocator::pool_allocator(16, 32, 5),
                       std::invalid_argument); // alignment must be power of two
 }
 
 TEST_CASE("Power of two alignment", "[pool_allocator][alignment]") {
-    REQUIRE_NOTHROW(allocator::Pool_Allocator(16, 32, 8)); // alignment must be power of two
+    REQUIRE_NOTHROW(allocator::pool_allocator(16, 32, 8)); // alignment must be power of two
 }
 
 TEST_CASE("alignment must be between alignof(int) and alignof(max_align_t)", "[alignment]") {
-    REQUIRE_THROWS_AS(allocator::Pool_Allocator(16, 32, 3), std::invalid_argument);
-    REQUIRE_THROWS_AS(allocator::Pool_Allocator(16, 32, 20), std::invalid_argument);
+    REQUIRE_THROWS_AS(allocator::pool_allocator(16, 32, 3), std::invalid_argument);
+    REQUIRE_THROWS_AS(allocator::pool_allocator(16, 32, 20), std::invalid_argument);
 }
 
-TEST_CASE("try allocating more than max capacity(64 MB)", "[pool_allocator][basic]") {
-    REQUIRE_THROWS_AS(allocator::Pool_Allocator(32, 65ull * 1024 * 1024), std::invalid_argument);
-}
-
+// benchmarks
 TEST_CASE("Pool Allocator - Pool vs Malloc (64 byte objects)",
           "[pool_allocator][benchmark][comparison]") {
 
@@ -154,7 +152,7 @@ TEST_CASE("Pool Allocator - Pool vs Malloc (64 byte objects)",
 
     // Test pool
     BENCHMARK_ADVANCED("pool")(Catch::Benchmark::Chronometer meter) {
-        allocator::Pool_Allocator pool(OBJECT_SIZE, NUM_OBJECTS);
+        allocator::pool_allocator pool(OBJECT_SIZE, NUM_OBJECTS);
 
         std::vector<void*> ptrs;
         ptrs.reserve(NUM_OBJECTS);
@@ -172,7 +170,7 @@ TEST_CASE("Pool Allocator - Pool vs Malloc (64 byte objects)",
 }
 
 TEST_CASE("Pool Allocator - pool allocating speed", "[pool_allocator][benchmark][speed]") {
-    allocator::Pool_Allocator pool(64, 1000);
+    allocator::pool_allocator pool(64, 1000);
 
     BENCHMARK_ADVANCED("Pool-64byte-alloc")(Catch::Benchmark::Chronometer meter) {
         std::vector<void*> ptrs;
@@ -196,7 +194,7 @@ TEST_CASE("Pool Allocator - Cache Performance(Random vs Sequential)",
           "[pool_allocator][benchmark][cachePerformance]") {
 
     const size_t NUM_OBJECTS = 10000;
-    allocator::Pool_Allocator pool(64, NUM_OBJECTS);
+    allocator::pool_allocator pool(64, NUM_OBJECTS);
 
     std::vector<void*> ptrs;
     for (size_t i = 0; i < NUM_OBJECTS; ++i) {
@@ -229,7 +227,7 @@ TEST_CASE("Pool Allocator - Cache Performance(Random vs Sequential)",
 TEST_CASE("Pool allocator - Pool Growth Cost", "[pool_allocator][benchmark][growthCost]") {
 
     BENCHMARK_ADVANCED("Growth-Performance")(Catch::Benchmark::Chronometer meter) {
-        allocator::Pool_Allocator pool(64, 100);
+        allocator::pool_allocator pool(64, 100);
         std::vector<void*> all_ptrs;
 
         meter.measure([&] {
@@ -256,7 +254,7 @@ TEST_CASE("Pool Allocator - Realistic Game Pattern", "[pool_allocator][benchmark
         // other bullet data
     };
 
-    allocator::Pool_Allocator bullet_pool(sizeof(Bullet), 1000, alignof(Bullet));
+    allocator::pool_allocator bullet_pool(sizeof(Bullet), 1000, alignof(Bullet));
     std::vector<void*> active_bullets;
 
     BENCHMARK_ADVANCED("Game-Simulation")(Catch::Benchmark::Chronometer meter) {
@@ -312,7 +310,7 @@ TEST_CASE("Pool Allocator - Alignment Overhead", "[pool_allocator][benchmark][al
     for (const auto& test : test_cases) {
 
         SECTION(test.description) {
-            allocator::Pool_Allocator pool(test.raw_size, 100);
+            allocator::pool_allocator pool(test.raw_size, 100);
 
             // Get actual object size after alignment
             size_t actual_size = pool.getObjectSize();

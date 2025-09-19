@@ -18,7 +18,7 @@ void pool_allocator_example() {
     std::cout << ">>>>>> Basic usage of Pool allocator <<<<<<\n";
 
     // create a pool allocator for int type
-    allocator::Pool_Allocator pool(sizeof(int), 100, alignof(int));
+    allocator::pool_allocator pool(sizeof(int), 100, alignof(int));
 
     // store allocated pointers for later deallocation
     std::vector<int*> allocated_ptrs;
