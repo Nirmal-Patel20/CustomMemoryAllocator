@@ -4,7 +4,7 @@ allocator::stack_allocator::stack_allocator(size_t bufferSize, size_t alignment,
     : m_bufferSize(bufferSize), m_resizable(resizable) {
 
     if (bufferSize > MAX_CAPACITY) {
-        throw std::invalid_argument("stack_allocator: Requested size exceeds maximum capacity(" +
+        throw std::invalid_argument(m_allocator + ": Requested size exceeds maximum capacity(" +
                                     std::to_string(MAX_CAPACITY) + " MB).");
     }
 
@@ -12,10 +12,10 @@ allocator::stack_allocator::stack_allocator(size_t bufferSize, size_t alignment,
         m_alignment = sizeof(void*); // 8 bytes
     } else {
         if (!isAlignmentPowerOfTwo(alignment)) {
-            throw std::invalid_argument("stack_allocator: Alignment must be a power of two.");
+            throw std::invalid_argument(m_allocator + ": Alignment must be a power of two.");
         }
         if (alignment < alignof(int) || alignment > alignof(max_align_t)) {
-            throw std::invalid_argument("stack_allocator: Alignment must be at least between " +
+            throw std::invalid_argument(m_allocator + ": Alignment must be at least between " +
                                         std::to_string(alignof(int)) + " and " +
                                         std::to_string(alignof(max_align_t)) + " bytes.");
         }
@@ -32,29 +32,29 @@ allocator::stack_allocator::~stack_allocator() {
 
 void* allocator::stack_allocator::allocate(size_t size, size_t alignment) {
     if (!m_ownsMemory) {
-        allocator::throwAllocationError("stack_allocator", "Allocator has released its memory");
-    }
-
-    if (size > m_bufferSize) {
-        allocator::throwAllocationError("stack_allocator", "Requested size exceeds buffer size(" +
-                                                               std::to_string(m_bufferSize) +
-                                                               " bytes");
+        allocator::throwAllocationError(m_allocator, "Allocator has released its memory");
     }
 
     if (alignment == 0) {
         alignment = m_alignment;
     } else {
         if (!isAlignmentPowerOfTwo(alignment)) {
-            throw std::invalid_argument("stack_allocator: Alignment must be a power of two.");
+            throw std::invalid_argument(m_allocator + ": Alignment must be a power of two.");
         }
         if (alignment < alignof(int)) {
-            throw std::invalid_argument("stack_allocator: Alignment must be greater than " +
+            throw std::invalid_argument(m_allocator + ": Alignment must be greater than " +
                                         std::to_string(alignof(int)) + " bytes.");
         }
     }
 
-    auto& lastbuffer = buffers.back();
     auto alignSize = getAlignedSize(size, alignment);
+
+    if (alignSize > m_bufferSize) {
+        allocator::throwAllocationError(m_allocator, "Requested size exceeds buffer size(" +
+                                                         std::to_string(m_bufferSize) + " bytes");
+    }
+
+    auto& lastbuffer = buffers.back();
 
     if (lastbuffer.offset + alignSize <= lastbuffer.size) {
         void* ptr = lastbuffer.memory.get() + lastbuffer.offset;
@@ -72,7 +72,7 @@ void* allocator::stack_allocator::allocate(size_t size, size_t alignment) {
 void allocator::stack_allocator::deallocate(void* ptr) {
 
     if (allocation_history.back().ptr != ptr) {
-        throw std::invalid_argument("Stack allocator: Invalid LIFO deallocation order");
+        throw std::invalid_argument(m_allocator + ": Invalid LIFO deallocation order");
     }
 
     auto& lastbuffer = buffers.back();
@@ -94,7 +94,9 @@ size_t allocator::stack_allocator::getAllocatedSize() const {
 }
 
 size_t allocator::stack_allocator::getObjectSize() const {
-    return allocation_history.back().size; // Size of the last allocated object
+    return allocation_history.empty()
+               ? 0
+               : allocation_history.back().size; // Size of the last allocated object
 }
 
 void allocator::stack_allocator::reset() {
@@ -125,12 +127,11 @@ void allocator::stack_allocator::releaseMemory() {
 void allocator::stack_allocator::allocate_new_buffer() {
     if (m_ownsMemory) {
         if (!m_resizable) {
-            allocator::throwAllocationError("stack_allocator",
+            allocator::throwAllocationError(m_allocator,
                                             "Cannot allocate new buffer in non-resizable mode");
         } else if (m_resizable && (m_bufferSize * (buffers.size() + 1) > MAX_CAPACITY)) {
-            allocator::throwAllocationError("stack_allocator", "Exceeds maximum capacity(" +
-                                                                   std::to_string(MAX_CAPACITY) +
-                                                                   " MB)");
+            allocator::throwAllocationError(m_allocator, "Exceeds maximum capacity(" +
+                                                             std::to_string(MAX_CAPACITY) + " MB)");
         }
     }
 
@@ -139,4 +140,8 @@ void allocator::stack_allocator::allocate_new_buffer() {
     m_ownsMemory = true;
     new_buffer.size = m_bufferSize;
     buffers.push_back(std::move(new_buffer));
+}
+
+void allocator::stack_allocator::setAllocatorName(std::string_view name) {
+    m_allocator = name;
 }

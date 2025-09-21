@@ -14,6 +14,7 @@ class stack_allocator : public AllocatorInterface {
     size_t getObjectSize() const override;
     void reset() override;
     void releaseMemory();
+    void setAllocatorName(std::string_view name);
 
   private:
     void allocate_new_buffer();
@@ -38,7 +39,8 @@ class stack_allocator : public AllocatorInterface {
     bool m_resizable = false;                        // configurable
     bool m_ownsMemory = false;                       // check if the allocator owns the memory
     static constexpr size_t MAX_CAPACITY =
-        64ull * 1024 * 1024; // 64 MB Max capacity if it's not resizable
+        64ull * 1024 * 1024;                     // 64 MB Max capacity if it's not resizable
+    std::string m_allocator = "stack_allocator"; // Custom Name for debugging
 };
 
 } // namespace allocator
