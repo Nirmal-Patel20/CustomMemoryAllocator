@@ -124,3 +124,124 @@ TEST_CASE("stack_allocator - Allocate multiple chunks exceeding buffer size on r
     REQUIRE(ptr2 != nullptr);
     REQUIRE_NOTHROW(stackAllocator.allocate(10)); // will create new buffer same size as previous
 }
+
+// Default alignment tests
+TEST_CASE("stack_allocator - Default alignment(8 bytes)",
+          "[stack_allocator][alignment]") { // Allocator use default alignment when user dont pass
+                                            // alignment when allocate
+    allocator::stack_allocator stackAllocator(128);
+
+    void* ptr1 = stackAllocator.allocate(1); // 7 bytes padding so actual size 8 bytes
+    REQUIRE(stackAllocator.getObjectSize() ==
+            8); // getObjectSize can only give last allocating size
+
+    void* ptr2 = stackAllocator.allocate(15); // 1 bytes padding so actual size 16 bytes
+    REQUIRE(stackAllocator.getObjectSize() == 16);
+
+    void* ptr3 = stackAllocator.allocate(32); // no padding
+    REQUIRE(stackAllocator.getObjectSize() == 32);
+
+    stackAllocator.releaseMemory();
+}
+
+TEST_CASE("stack_allocator - Pass default alignment", "[stack_allocator][alignment]") {
+    // You can pass default alignment at construction of stack allocator and allocator will use that
+    // but it must be between alignof(int) and alignof(max_align_t) which is usually 4 and 16
+    allocator::stack_allocator stackAllocator(128, 4);
+
+    void* ptr1 = stackAllocator.allocate(1); // 3 bytes padding so actual size 4 bytes
+    REQUIRE(stackAllocator.getObjectSize() ==
+            4); // getObjectSize can only give last allocating size
+
+    void* ptr2 = stackAllocator.allocate(5); // 3 bytes padding so actual size 8 bytes
+    REQUIRE(stackAllocator.getObjectSize() == 8);
+
+    void* ptr3 = stackAllocator.allocate(15); // 1 bytes padding so actual size 16 bytes
+    REQUIRE(stackAllocator.getObjectSize() == 16);
+
+    void* ptr4 = stackAllocator.allocate(32); // no padding
+    REQUIRE(stackAllocator.getObjectSize() == 32);
+
+    stackAllocator.releaseMemory();
+}
+
+// Pass default alignment enforcements tests
+// stack allocator first check it power of two then it between range
+
+// Pass default alignment must be power of two
+TEST_CASE("stack_allocator - Pass default alignment is power of two",
+          "[stack_allocator][alignment]") {
+    REQUIRE_NOTHROW(allocator::stack_allocator(125, 16));
+}
+
+TEST_CASE("stack_allocator - Pass default alignment is non-power of two",
+          "[stack_allocator][alignment]") {
+    REQUIRE_THROWS_AS(allocator::stack_allocator(125, 5), std::invalid_argument);
+}
+
+// Passed default alignment must be between alignof(int) and alignof(max_align_t) which is usually 4
+// and 16 bytes
+TEST_CASE("stack_allocator - Pass default alignment is less than alignof(int) usually 4 byes",
+          "[stack_allocator][alignment]") {
+    REQUIRE_THROWS_AS(allocator::stack_allocator(125, 2), std::invalid_argument);
+}
+
+TEST_CASE(
+    "stack_allocator - Pass default alignment is more than alignof(max_align_t) usually 16 byes",
+    "[stack_allocator][alignment]") {
+    REQUIRE_THROWS_AS(allocator::stack_allocator(125, 32), std::invalid_argument);
+}
+
+// Alignment tests when we allocate
+TEST_CASE("stack_allocator - allocate alignment", "[stack_allocator][alignment]") {
+    allocator::stack_allocator stackAllocator(128); // 8 bytes default alignment
+
+    void* ptr1 = stackAllocator.allocate(
+        1, 4); // now it will get align to passed alignment not to default one
+    REQUIRE(stackAllocator.getObjectSize() == 4);
+
+    void* ptr2 = stackAllocator.allocate(1); // align to default alignment
+    REQUIRE(stackAllocator.getObjectSize() == 8);
+
+    void* ptr3 =
+        stackAllocator.allocate(1, 16); // 16 bytes alignment so 15 bytes padding so actual siz 16
+    REQUIRE(stackAllocator.getObjectSize() == 16);
+
+    void* ptr4 =
+        stackAllocator.allocate(16, 32); // 32 bytes alignment so 16 bytes padding so actual siz 32
+    REQUIRE(stackAllocator.getObjectSize() == 32);
+
+    stackAllocator.releaseMemory();
+}
+
+// Alignment at allocation time enforcements tests
+// stack allocator first check it power of two then it between range
+
+// Pass alignment must be power of two
+TEST_CASE("stack_allocator - Pass alignment is power of two", "[stack_allocator][alignment]") {
+    allocator::stack_allocator stackAllocator(128, 8);
+    REQUIRE_NOTHROW(stackAllocator.allocate(1, 16));
+}
+
+TEST_CASE("stack_allocator - Pass alignment is non-power of two", "[stack_allocator][alignment]") {
+    allocator::stack_allocator stackAllocator(128, 8);
+    REQUIRE_THROWS_AS(stackAllocator.allocate(1, 15), std::invalid_argument);
+}
+
+// Unlike default alignment, we can passed alignment any alignment if it greater than and equal to
+// alignof(int) which is usually 4 and it is power of two
+TEST_CASE("stack_allocator - Pass alignment is less than alignof(int) usually 4 byes",
+          "[stack_allocator][alignment]") {
+    allocator::stack_allocator stackAllocator(128, 8);
+    REQUIRE_THROWS_AS(stackAllocator.allocate(6, 1), std::invalid_argument);
+}
+
+// Be caution the higher the alignment, the higher chances of internal fragmentation
+TEST_CASE("stack_allocator - Pass alignment is more than alignof(max_align_t) usually 16 byes",
+          "[stack_allocator][alignment]") {
+    allocator::stack_allocator stackAllocator(128, 8);
+
+    REQUIRE_NOTHROW(stackAllocator.allocate(1, 128));
+
+    REQUIRE(stackAllocator.getObjectSize() == 128); // 127 padding, too much internal fragmentation
+}
