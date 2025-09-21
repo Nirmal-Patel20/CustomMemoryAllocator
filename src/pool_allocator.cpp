@@ -5,17 +5,18 @@ allocator::pool_allocator::pool_allocator(size_t blockSize, size_t initial_capac
     : m_blockCount(initial_capacity), m_maxPools(maxPools) {
 
     if (blockSize == 0 || initial_capacity == 0) {
-        throw std::invalid_argument("Block size and initial capacity must be greater than zero.");
+        throw std::invalid_argument(m_allocator +
+                                    ": Block size and initial capacity must be greater than zero.");
     }
 
     if (alignment == 0) {
         m_alignment = sizeof(void*); // 8 bytes
     } else {
         if (!isAlignmentPowerOfTwo(alignment)) {
-            throw std::invalid_argument("Alignment must be a power of two.");
+            throw std::invalid_argument(m_allocator + ": Alignment must be a power of two.");
         }
         if (alignment < alignof(int) || alignment > alignof(max_align_t)) {
-            throw std::invalid_argument("Alignment must be at least between " +
+            throw std::invalid_argument(m_allocator + ": Alignment must be at least between " +
                                         std::to_string(alignof(int)) + " and " +
                                         std::to_string(alignof(max_align_t)) + " bytes.");
         }
@@ -26,7 +27,8 @@ allocator::pool_allocator::pool_allocator(size_t blockSize, size_t initial_capac
     m_poolSize = m_blockSize * m_blockCount;
 
     if (m_poolSize > MAX_CAPACITY) {
-        throw std::invalid_argument("Requested pool size exceeds maximum capacity(64 MB).");
+        throw std::invalid_argument(m_allocator +
+                                    ": Requested pool size exceeds maximum capacity(64 MB).");
     }
 
     allocate_new_pool();
@@ -38,11 +40,11 @@ allocator::pool_allocator::~pool_allocator() {
 
 void* allocator::pool_allocator::allocate(size_t size, [[maybe_unused]] size_t alignment) {
     if (size > m_blockSize) {
-        allocator::throwAllocationError("pool_allocator", "Requested size exceeds block size");
+        allocator::throwAllocationError(m_allocator, "Requested size exceeds block size");
     }
 
     if (!m_ownsMemory) {
-        allocator::throwAllocationError("pool_allocator", "Allocator has released its memory");
+        allocator::throwAllocationError(m_allocator, "Allocator has released its memory");
     }
 
     for (auto& p : pools) {
@@ -74,7 +76,8 @@ void allocator::pool_allocator::deallocate(void* ptr) {
         }
     }
 
-    throw std::runtime_error("Pointer does not belong to any pools inside this allocator");
+    throw std::runtime_error(m_allocator +
+                             ": Pointer does not belong to any pools inside this allocator");
 }
 
 size_t allocator::pool_allocator::getAllocatedSize() const {
@@ -118,12 +121,12 @@ void allocator::pool_allocator::allocate_new_pool() {
 
     if (m_ownsMemory) {
         if (m_poolSize * (pools.size() + 1) > MAX_CAPACITY) {
-            allocator::throwAllocationError("pool_allocator", "Exceeds maximum capacity(64 MB)");
+            allocator::throwAllocationError(m_allocator, "Exceeds maximum capacity(64 MB)");
         }
 
         if (m_maxPools != 0 && ((pools.size() + 1) > m_maxPools)) {
-            allocator::throwAllocationError("pool_allocator", "Exceeds maximum pool count : " +
-                                                                  std::to_string(m_maxPools));
+            allocator::throwAllocationError(m_allocator, "Exceeds maximum pool count : " +
+                                                             std::to_string(m_maxPools));
         }
     }
 
@@ -141,4 +144,8 @@ void allocator::pool_allocator::allocate_new_pool() {
     }
 
     pools.push_back(std::move(new_pool));
+}
+
+void allocator::pool_allocator::setAllocatorName(std::string_view name) {
+    m_allocator = name;
 }

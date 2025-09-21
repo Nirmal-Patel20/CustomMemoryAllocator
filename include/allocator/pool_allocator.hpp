@@ -19,6 +19,7 @@ class pool_allocator : public AllocatorInterface {
     virtual size_t getObjectSize() const override;
     virtual void reset() override;
     void releaseMemory();
+    void setAllocatorName(std::string_view name);
 
   private:
     struct pool {
@@ -39,6 +40,7 @@ class pool_allocator : public AllocatorInterface {
     bool m_ownsMemory = false; // check if the allocator owns the memory
     size_t m_maxPools = 0;     // configurable
     static constexpr size_t MAX_CAPACITY = 64ull * 1024 * 1024; // 64 MB hard cap
+    std::string m_allocator = "pool_allocator";
 };
 
 } // namespace allocator
