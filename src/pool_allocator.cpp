@@ -63,15 +63,48 @@ void* allocator::pool_allocator::allocate(size_t size, [[maybe_unused]] size_t a
 }
 
 void allocator::pool_allocator::deallocate(void* ptr) {
-    for (auto& pool : pools) {
-        auto start = pool.memory.get();
-        auto end = pool.memory.get() + pool.size;
+    if (!ptr) {
+        throw std::invalid_argument(m_allocator + ": Attempted to deallocate a null pointer");
+    }
 
-        if (ptr >= start && ptr <= end) {
+    if (!m_ownsMemory) {
+        throw std::invalid_argument(m_allocator + ": Allocator does not hold any memory on heap");
+    }
+
+    for (auto& pool : pools) {
+
+        auto start = reinterpret_cast<std::uintptr_t>(pool.memory.get());
+        auto end = start + pool.size;
+        auto p = reinterpret_cast<std::uintptr_t>(ptr);
+
+        if (p >= start && p < end) {
+
+            std::uintptr_t offset = p - start;
+            if (offset % m_blockSize != 0) {
+                throw std::runtime_error(
+                    "Pointer is inside pool memory but does not point to the start of a block");
+            }
+
+// Optional: debug-only double-free detection.
+// This is O(n) but invaluable during development.
+#ifdef ALLOCATOR_DEBUG
+            for (void* walk = pool.free_list_head; walk != nullptr;
+                 walk = *reinterpret_cast<void**>(walk)) {
+                if (walk == ptr) {
+                    throw std::runtime_error(
+                        m_allocator + ": Double free detected (pointer already in free list)");
+                }
+            }
+#endif
+
+            // Put the block back on the free list
             *reinterpret_cast<void**>(ptr) = pool.free_list_head;
             pool.free_list_head = ptr;
-            pool.allocated_count--;
-            pool.free_count++;
+
+            // Update
+            --pool.allocated_count;
+            ++pool.free_count;
+
             return;
         }
     }
