@@ -130,16 +130,36 @@ TEST_CASE("Pool Allocator - alignment must be between alignof(int) and alignof(m
 }
 
 // benchmarks
-TEST_CASE("Pool Allocator - Pool vs Malloc (64 byte objects)",
+TEST_CASE("Pool Allocator - allocating speed(Pool vs Malloc)(64 bytes)",
           "[pool_allocator][benchmark][comparison]") {
 
+    allocator::g_debug_checks = false;
+
     const size_t OBJECT_SIZE = 64;
-    const size_t NUM_OBJECTS = 10000;
+    const size_t NUM_OBJECTS = 5000;
 
     // Test malloc
-    BENCHMARK_ADVANCED("Malloc")(Catch::Benchmark::Chronometer meter) {
+    // Allocation speed
+    BENCHMARK_ADVANCED("Pool allocating speed")(Catch::Benchmark::Chronometer meter) {
+
+        allocator::pool_allocator pool(OBJECT_SIZE, NUM_OBJECTS);
+
         std::vector<void*> ptrs;
-        ptrs.reserve(NUM_OBJECTS);
+
+        meter.measure([&] {
+            for (size_t i = 0; i < NUM_OBJECTS; ++i) {
+                ptrs.push_back(pool.allocate(OBJECT_SIZE));
+            }
+        });
+
+        for (auto ptr : ptrs) {
+            pool.deallocate(ptr);
+        }
+    };
+
+    BENCHMARK_ADVANCED("Malloc allocating speed")(Catch::Benchmark::Chronometer meter) {
+
+        std::vector<void*> ptrs;
 
         meter.measure([&] {
             for (size_t i = 0; i < NUM_OBJECTS; ++i) {
@@ -152,81 +172,57 @@ TEST_CASE("Pool Allocator - Pool vs Malloc (64 byte objects)",
         }
     };
 
-    // Test pool
-    BENCHMARK_ADVANCED("pool")(Catch::Benchmark::Chronometer meter) {
+    allocator::g_debug_checks = true;
+}
+
+TEST_CASE("Pool Allocator - Deallocating speed(Pool vs Malloc)(64 bytes)",
+          "[pool_allocator][benchmark][comparison]") {
+
+    allocator::g_debug_checks = false;
+
+    const size_t OBJECT_SIZE = 64;
+    const size_t NUM_OBJECTS = 5000;
+
+    // Deallocation speed
+    BENCHMARK_ADVANCED("Pool deallocating speed")(Catch::Benchmark::Chronometer meter) {
         allocator::pool_allocator pool(OBJECT_SIZE, NUM_OBJECTS);
 
-        std::vector<void*> ptrs;
-        ptrs.reserve(NUM_OBJECTS);
-
         meter.measure([&] {
+            std::vector<void*> ptrs;
+            ptrs.reserve(NUM_OBJECTS);
+
             for (size_t i = 0; i < NUM_OBJECTS; ++i) {
                 ptrs.push_back(pool.allocate(OBJECT_SIZE));
             }
-        });
 
-        for (auto& ptr : ptrs) {
-            pool.deallocate(ptr);
-        }
-    };
-}
-
-TEST_CASE("Pool Allocator - pool allocating speed", "[pool_allocator][benchmark][speed]") {
-    allocator::pool_allocator pool(64, 1000);
-
-    BENCHMARK_ADVANCED("Pool-64byte-alloc")(Catch::Benchmark::Chronometer meter) {
-        std::vector<void*> ptrs;
-        ptrs.reserve(1000);
-
-        meter.measure([&] {
-            // This block is what gets timed
-            for (int i = 0; i < 1000; ++i) {
-                ptrs.push_back(pool.allocate(64));
-            }
-        });
-
-        // Cleanup outside measurement
-        for (auto ptr : ptrs) {
-            pool.deallocate(ptr);
-        }
-    };
-}
-
-TEST_CASE("Pool Allocator - Cache Performance(Random vs Sequential)",
-          "[pool_allocator][benchmark][cachePerformance]") {
-
-    const size_t NUM_OBJECTS = 10000;
-    allocator::pool_allocator pool(64, NUM_OBJECTS);
-
-    std::vector<void*> ptrs;
-    for (size_t i = 0; i < NUM_OBJECTS; ++i) {
-        ptrs.push_back(pool.allocate(64));
-    }
-
-    // Sequential access
-    BENCHMARK_ADVANCED("Sequential-Access")(Catch::Benchmark::Chronometer meter) {
-        meter.measure([&] {
             for (auto ptr : ptrs) {
-                volatile int* data = static_cast<int*>(ptr);
-                *data = 42;
+                pool.deallocate(ptr);
             }
         });
     };
 
-    // Random access
-    BENCHMARK_ADVANCED("Random-Access")(Catch::Benchmark::Chronometer meter) {
-        std::shuffle(ptrs.begin(), ptrs.end(), std::mt19937{std::random_device{}()});
+    BENCHMARK_ADVANCED("Malloc deallocating speed")(Catch::Benchmark::Chronometer meter) {
 
         meter.measure([&] {
+            std::vector<void*> ptrs;
+            ptrs.reserve(NUM_OBJECTS);
+
+            for (size_t i = 0; i < NUM_OBJECTS; ++i) {
+                ptrs.push_back(malloc(OBJECT_SIZE));
+            }
+
             for (auto ptr : ptrs) {
-                volatile int* data = static_cast<int*>(ptr);
-                *data = 42;
+                free(ptr);
             }
         });
     };
+
+    allocator::g_debug_checks = true;
 }
 
 TEST_CASE("Pool allocator - Pool Growth Cost", "[pool_allocator][benchmark][growthCost]") {
+
+    allocator::g_debug_checks = false;
 
     BENCHMARK_ADVANCED("Growth-Performance")(Catch::Benchmark::Chronometer meter) {
         allocator::pool_allocator pool(64, 100);
@@ -246,9 +242,14 @@ TEST_CASE("Pool allocator - Pool Growth Cost", "[pool_allocator][benchmark][grow
         // Cleanup
         pool.releaseMemory();
     };
+
+    allocator::g_debug_checks = true;
 }
 
 TEST_CASE("Pool Allocator - Realistic Game Pattern", "[pool_allocator][benchmark][gamePattern]") {
+
+    allocator::g_debug_checks = false;
+
     struct Bullet {
         float position;
         float velocity;
@@ -291,6 +292,8 @@ TEST_CASE("Pool Allocator - Realistic Game Pattern", "[pool_allocator][benchmark
             bullet_pool.deallocate(ptr);
         }
     };
+
+    allocator::g_debug_checks = true;
 }
 
 TEST_CASE("Pool Allocator - Alignment Overhead", "[pool_allocator][benchmark][alignmentOverhead]") {
