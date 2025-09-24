@@ -1,7 +1,6 @@
 #ifndef POOL_ALLOCATOR_HPP
 #define POOL_ALLOCATOR_HPP
 
-#include "allocator/allocatorError.hpp"
 #include "allocator/allocator_interface.hpp"
 #include <iostream>
 #include <vector>

@@ -85,17 +85,18 @@ void allocator::pool_allocator::deallocate(void* ptr) {
                     "Pointer is inside pool memory but does not point to the start of a block");
             }
 
-// Optional: debug-only double-free detection.
-// This is O(n) but invaluable during development.
-#ifdef ALLOCATOR_DEBUG
-            for (void* walk = pool.free_list_head; walk != nullptr;
-                 walk = *reinterpret_cast<void**>(walk)) {
-                if (walk == ptr) {
-                    throw std::runtime_error(
-                        m_allocator + ": Double free detected (pointer already in free list)");
+            // Optional: debug-only double-free detection.
+            // This is O(n) but invaluable during development.
+            #ifdef ALLOCATOR_DEBUG
+                if(allocator::g_debug_checks.load(std::memory_order_relaxed)){   // allow benchmarks to opt out
+                    for (void* walk = pool.free_list_head; walk != nullptr;
+                            walk = *reinterpret_cast<void**>(walk)) {
+                        if (walk == ptr) {
+                            throw std::runtime_error("Double free detected");
+                        }
+                    }
                 }
-            }
-#endif
+            #endif
 
             // Put the block back on the free list
             *reinterpret_cast<void**>(ptr) = pool.free_list_head;
