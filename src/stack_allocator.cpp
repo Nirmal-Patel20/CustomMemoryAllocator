@@ -3,9 +3,10 @@
 allocator::stack_allocator::stack_allocator(size_t bufferSize, size_t alignment, bool resizable)
     : m_bufferSize(bufferSize), m_resizable(resizable) {
 
-    if (bufferSize > MAX_CAPACITY) {
+    if (bufferSize > MAX_CAPACITY &&
+        allocator::Max_Capacity_checks.load(std::memory_order_relaxed)) {
         throw std::invalid_argument(m_allocator + ": Requested size exceeds maximum capacity(" +
-                                    std::to_string(MAX_CAPACITY) + " MB).");
+                                    std::to_string(MAX_CAPACITY / (1024 * 1024)) + " MB).");
     }
 
     if (alignment == 0) {
@@ -60,7 +61,12 @@ void* allocator::stack_allocator::allocate(size_t size, size_t alignment) {
         void* ptr = lastbuffer.memory.get() + lastbuffer.offset;
         lastbuffer.offset += alignSize;
 
-        allocation_history.push_back({ptr, alignSize});
+#if ALLOCATOR_DEBUG
+        if (allocator::g_debug_checks.load(std::memory_order_relaxed)) {
+            allocation_history.push_back({ptr, alignSize});
+        }
+#endif
+
         return ptr;
     }
 
@@ -71,17 +77,63 @@ void* allocator::stack_allocator::allocate(size_t size, size_t alignment) {
 
 void allocator::stack_allocator::deallocate(void* ptr) {
 
-    if (allocation_history.back().ptr != ptr) {
-        throw std::invalid_argument(m_allocator + ": Invalid LIFO deallocation order");
+    if (!ptr) {
+        throw std::invalid_argument(m_allocator + ": Attempted to deallocate a null pointer");
+    }
+
+    if (!m_ownsMemory) {
+        throw std::invalid_argument(m_allocator + ": Allocator does not hold any memory on heap");
     }
 
     auto& lastbuffer = buffers.back();
 
-    lastbuffer.offset -= allocation_history.back().size;
+#if ALLOCATOR_DEBUG
+    if (allocator::g_debug_checks.load(std::memory_order_relaxed)) {
+        auto& last_alloc = allocation_history.back();
+        if (last_alloc.ptr != ptr) {
+            throw std::invalid_argument(m_allocator + ": Invalid LIFO deallocation order");
+        }
+
+        lastbuffer.offset -= last_alloc.size;
+        allocation_history.pop_back();
+    } else
+#endif
+    {
+        // Note: The 'else' above pairs with the debug 'if' only if ALLOCATOR_DEBUG is defined.
+        // If ALLOCATOR_DEBUG is not defined, this block always runs.
+
+        // release or debug check are off:
+        // Assume ptr is the last allocation (LIFO)
+
+        auto start = reinterpret_cast<std::uintptr_t>(lastbuffer.memory.get());
+        auto raw_ptr = reinterpret_cast<std::uintptr_t>(ptr);
+
+        if (raw_ptr < start || raw_ptr >= start + lastbuffer.size) {
+            throw std::runtime_error(
+                m_allocator + ": Pointer does not belong to last chunk inside this allocator");
+        }
+
+        auto top_ptr = start + lastbuffer.offset;
+
+        if (raw_ptr > top_ptr) {
+            throw std::invalid_argument(m_allocator +
+                                        ": Pointer is beyond current top; deallocation must follow "
+                                        "LIFO order or memory corruption suspected");
+        }
+
+        size_t size = reinterpret_cast<size_t>(top_ptr - raw_ptr);
+        if (size > lastbuffer.offset) {
+            throw std::runtime_error(m_allocator + ": Calculated deallocation size exceeds current "
+                                                   "allocated offset; memory corruption suspected");
+        }
+
+        lastbuffer.offset -= size;
+    }
+
+    // Drop empty buffer unless it's the only one
     if (lastbuffer.offset == 0 && buffers.size() > 1) {
         buffers.pop_back();
     }
-    allocation_history.pop_back();
 }
 
 size_t allocator::stack_allocator::getAllocatedSize() const {
@@ -94,9 +146,17 @@ size_t allocator::stack_allocator::getAllocatedSize() const {
 }
 
 size_t allocator::stack_allocator::getObjectSize() const {
-    return allocation_history.empty()
-               ? 0
-               : allocation_history.back().size; // Size of the last allocated object
+    size_t lastObjectSize = 0;
+
+#if ALLOCATOR_DEBUG
+    if (!allocation_history.empty()) {
+        lastObjectSize = allocation_history.back().size;
+    }
+#else
+    throw std::runtime_error(m_allocator + ": getObjectSize() is only available in debug mode.");
+#endif
+
+    return lastObjectSize; // Size of the last allocated object
 }
 
 void allocator::stack_allocator::reset() {
@@ -108,8 +168,10 @@ void allocator::stack_allocator::reset() {
             buffers.pop_back();
         }
 
+#if ALLOCATOR_DEBUG
         // Clear allocation history
         allocation_history.clear();
+#endif
 
         auto& lastbuffer = buffers.back();
         lastbuffer.offset = 0; // Reset offset
@@ -120,18 +182,23 @@ void allocator::stack_allocator::reset() {
 
 void allocator::stack_allocator::releaseMemory() {
     buffers.clear();
+#if ALLOCATOR_DEBUG
+    // Clear allocation history
     allocation_history.clear();
+#endif
     m_ownsMemory = false;
 }
 
 void allocator::stack_allocator::allocate_new_buffer() {
-    if (m_ownsMemory) {
+    if (m_ownsMemory && allocator::Max_Capacity_checks.load(
+                            std::memory_order_relaxed)) { // allow benchmarks to opt out
         if (!m_resizable) {
             allocator::throwAllocationError(m_allocator,
                                             "Cannot allocate new buffer in non-resizable mode");
         } else if (m_resizable && (m_bufferSize * (buffers.size() + 1) > MAX_CAPACITY)) {
-            allocator::throwAllocationError(m_allocator, "Exceeds maximum capacity(" +
-                                                             std::to_string(MAX_CAPACITY) + " MB)");
+            allocator::throwAllocationError(
+                m_allocator, "Exceeds maximum capacity(" +
+                                 std::to_string(MAX_CAPACITY / (1024 * 1024)) + " MB)");
         }
     }
 
