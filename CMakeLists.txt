@@ -24,12 +24,6 @@ else()
     endif()
 endif()
 
-# Build type specific defines
-if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    add_compile_definitions(ALLOCATOR_DEBUG)
-    add_compile_definitions(ALLOCATOR_ENABLE_TRACKING)
-endif()
-
 message(STATUS "C++ compiler: ${CMAKE_CXX_COMPILER}")
 message(STATUS "C++ compiler ID: ${CMAKE_CXX_COMPILER_ID}")
 message(STATUS "C++ compiler version: ${CMAKE_CXX_COMPILER_VERSION}")
@@ -47,7 +41,14 @@ add_library(allocator ${SOURCES})
 target_include_directories(allocator
     PUBLIC include
     PRIVATE src
- )
+)
+
+# Let the library know its own build type
+target_compile_definitions(allocator
+    PUBLIC
+        $<$<CONFIG:Debug>:ALLOCATOR_DEBUG=1>
+        $<$<NOT:$<CONFIG:Debug>>:ALLOCATOR_DEBUG=0>
+)
 
 option(BUILD_EXAMPLES "Build example programs" ON)
 if(BUILD_EXAMPLES)
