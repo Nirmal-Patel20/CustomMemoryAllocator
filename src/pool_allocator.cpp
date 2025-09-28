@@ -20,10 +20,13 @@ allocator::pool_allocator::pool_allocator(size_t blockSize, size_t initial_capac
                                         std::to_string(alignof(int)) + " and " +
                                         std::to_string(alignof(max_align_t)) + " bytes.");
         }
-        m_alignment = (alignment >= 8) ? alignment : 8;
+
+        m_alignment = alignment;
     }
 
-    m_blockSize = getAlignedSize(blockSize, m_alignment);
+    auto alignBlock = getAlignedSize(blockSize, m_alignment);
+    m_blockSize = (alignBlock >= 8) ? alignBlock : 8;
+
     m_poolSize = m_blockSize * m_blockCount;
 
     if (m_poolSize > MAX_CAPACITY) {
