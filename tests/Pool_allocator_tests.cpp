@@ -133,8 +133,8 @@ TEST_CASE("Pool Allocator - alignment must be between alignof(int) and alignof(m
 TEST_CASE("Pool Allocator - allocating speed(Pool vs Malloc)(64 bytes)",
           "[pool_allocator][benchmark][comparison]") {
 
-    allocator::g_debug_checks = false;
-    allocator::Max_Capacity_checks = false;
+    allocator::DebugGuard(false);
+    allocator::CapacityGuard(false);
 
     const size_t OBJECT_SIZE = 64;
     const size_t NUM_OBJECTS = 5000;
@@ -172,15 +172,13 @@ TEST_CASE("Pool Allocator - allocating speed(Pool vs Malloc)(64 bytes)",
             free(ptr);
         }
     };
-
-    allocator::g_debug_checks = true;
-    allocator::Max_Capacity_checks = true;
 }
 
 TEST_CASE("Pool Allocator - Deallocating speed(Pool vs Malloc)(64 bytes)",
           "[pool_allocator][benchmark][comparison]") {
 
-    allocator::g_debug_checks = false;
+    allocator::DebugGuard(false);
+    allocator::CapacityGuard(false);
 
     const size_t OBJECT_SIZE = 64;
     const size_t NUM_OBJECTS = 5000;
@@ -234,13 +232,11 @@ TEST_CASE("Pool Allocator - Deallocating speed(Pool vs Malloc)(64 bytes)",
             }
         });
     };
-
-    allocator::g_debug_checks = true;
 }
 
 TEST_CASE("Pool allocator - Pool Growth Cost", "[pool_allocator][benchmark][growthCost]") {
 
-    allocator::g_debug_checks = false;
+    allocator::DebugGuard(false);
 
     BENCHMARK_ADVANCED("Growth-Performance")(Catch::Benchmark::Chronometer meter) {
         allocator::pool_allocator pool(64, 100);
@@ -260,13 +256,11 @@ TEST_CASE("Pool allocator - Pool Growth Cost", "[pool_allocator][benchmark][grow
         // Cleanup
         pool.releaseMemory();
     };
-
-    allocator::g_debug_checks = true;
 }
 
 TEST_CASE("Pool Allocator - Realistic Game Pattern", "[pool_allocator][benchmark][gamePattern]") {
 
-    allocator::g_debug_checks = false;
+    allocator::DebugGuard(false);
 
     struct Bullet {
         float position;
@@ -310,8 +304,6 @@ TEST_CASE("Pool Allocator - Realistic Game Pattern", "[pool_allocator][benchmark
             bullet_pool.deallocate(ptr);
         }
     };
-
-    allocator::g_debug_checks = true;
 }
 
 TEST_CASE("Pool Allocator - Alignment Overhead", "[pool_allocator][benchmark][alignmentOverhead]") {
