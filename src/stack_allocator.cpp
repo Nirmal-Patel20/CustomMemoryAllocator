@@ -3,8 +3,7 @@
 allocator::stack_allocator::stack_allocator(size_t bufferSize, size_t alignment, bool resizable)
     : m_bufferSize(bufferSize), m_resizable(resizable) {
 
-    if (bufferSize > MAX_CAPACITY &&
-        allocator::Max_Capacity_checks.load(std::memory_order_relaxed)) {
+    if (bufferSize > MAX_CAPACITY && allocator::g_capacity_checks.load(std::memory_order_relaxed)) {
         throw std::invalid_argument(m_allocator + ": Requested size exceeds maximum capacity(" +
                                     std::to_string(MAX_CAPACITY / (1024 * 1024)) + " MB).");
     }
@@ -190,7 +189,7 @@ void allocator::stack_allocator::releaseMemory() {
 }
 
 void allocator::stack_allocator::allocate_new_buffer() {
-    if (m_ownsMemory && allocator::Max_Capacity_checks.load(
+    if (m_ownsMemory && allocator::g_capacity_checks.load(
                             std::memory_order_relaxed)) { // allow benchmarks to opt out
         if (!m_resizable) {
             allocator::throwAllocationError(m_allocator,

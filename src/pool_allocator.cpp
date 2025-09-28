@@ -152,7 +152,7 @@ void allocator::pool_allocator::releaseMemory() {
 
 void allocator::pool_allocator::allocate_new_pool() {
 
-    if (m_ownsMemory && allocator::Max_Capacity_checks.load(
+    if (m_ownsMemory && allocator::g_capacity_checks.load(
                             std::memory_order_relaxed)) { // allow benchmarks to opt out
         if (m_poolSize * (pools.size() + 1) > MAX_CAPACITY) {
             allocator::throwAllocationError(m_allocator, "Exceeds maximum capacity(64 MB)");
