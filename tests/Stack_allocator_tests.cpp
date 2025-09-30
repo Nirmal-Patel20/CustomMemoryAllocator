@@ -150,6 +150,113 @@ TEST_CASE("stack_allocator - set stack allocator as resizable", "[stack_allocato
     REQUIRE_NOTHROW(small_stack.allocate(16));
 }
 
+// Basic mark functionality
+TEST_CASE("stack_allocator - basic mark usage", "[stack_allocator][basic]") {
+    allocator::stack_allocator stack(256, 8, true);
+
+    void* ptr1 = stack.allocate(16);
+    void* ptr2 = stack.allocate(16);
+
+    REQUIRE(stack.getAllocatedSize() == 32);
+
+    // Take a mark after 32 bytes have been allocated
+    auto mark = stack.mark();
+
+    void* ptr3 = stack.allocate(32);
+    void* ptr4 = stack.allocate(64);
+
+    REQUIRE(stack.getAllocatedSize() == 128);
+
+    // Reset allocator to the mark; allocated size should revert to 32
+    stack.reset_to_mark(mark);
+
+    REQUIRE(stack.getAllocatedSize() == 32);
+}
+
+// Allocator shrinks back when new buffers were added after mark
+TEST_CASE("stack_allocator - reset_to_mark shrinks buffers to mark", "[stack_allocator][basic]") {
+    allocator::stack_allocator stack(32, 8, true);
+
+    void* ptr1 = stack.allocate(16);
+    void* ptr2 = stack.allocate(16);
+
+    // Stack is full now
+    REQUIRE(stack.getAllocatedSize() == 32);
+
+    auto mark = stack.mark();
+
+    // Allocate 2 more buffers
+    void* ptr3 = stack.allocate(32);
+    void* ptr4 = stack.allocate(32);
+
+    REQUIRE(stack.getAllocatedSize() == 96);
+
+    // Reset allocator to the mark; buffers should shrink
+    stack.reset_to_mark(mark);
+
+    REQUIRE(stack.getAllocatedSize() == 32);
+}
+
+// Reset to mark throws if allocator's offset is less than mark offset
+TEST_CASE("stack_allocator - reset_to_mark throws if current offset is less than mark",
+          "[stack_allocator][basic]") {
+    allocator::stack_allocator stack(256, 8, true);
+
+    void* ptr1 = stack.allocate(16);
+    void* ptr2 = stack.allocate(16);
+
+    REQUIRE(stack.getAllocatedSize() == 32);
+
+    auto mark = stack.mark();
+
+    stack.deallocate(ptr2); // Now allocator offset is 16; mark offset is 32
+
+    REQUIRE_THROWS_AS(stack.reset_to_mark(mark), std::runtime_error);
+}
+
+// Reset throws if all buffers were released after mark
+TEST_CASE("stack_allocator - reset_to_mark throws if no buffers exist",
+          "[stack_allocator][basic]") {
+    allocator::stack_allocator stack(256, 8, true);
+
+    void* ptr1 = stack.allocate(16);
+    void* ptr2 = stack.allocate(16);
+
+    REQUIRE(stack.getAllocatedSize() == 32);
+
+    auto mark = stack.mark(); // Mark after 32 bytes
+
+    void* ptr3 = stack.allocate(32);
+    void* ptr4 = stack.allocate(64);
+
+    stack.releaseMemory();
+
+    // Reset should throw because no buffers exist
+    REQUIRE_THROWS_AS(stack.reset_to_mark(mark), std::invalid_argument);
+}
+
+// Reset throws if allocator has fewer buffers than the mark (negative sizeDiff)
+TEST_CASE("stack_allocator - reset_to_mark throws on negative sizeDiff",
+          "[stack_allocator][basic]") {
+    allocator::stack_allocator stack(32, 8, true);
+
+    void* ptr1 = stack.allocate(16);
+    void* ptr2 = stack.allocate(16);
+    void* ptr3 = stack.allocate(16);
+    void* ptr4 = stack.allocate(16);
+
+    REQUIRE(stack.getAllocatedSize() == 64);
+
+    // Take a mark when 2 buffer exists
+    auto mark = stack.mark();
+
+    stack.deallocate(ptr4);
+    stack.deallocate(ptr3); // now buffers.size() < mark size
+
+    // Reset should throw because current buffer count < mark buffer count
+    REQUIRE_THROWS_AS(stack.reset_to_mark(mark), std::runtime_error);
+}
+
 // Default alignment tests
 TEST_CASE("stack_allocator - Default alignment(8 bytes)",
           "[stack_allocator][alignment]") { // Allocator use default alignment when user dont pass
