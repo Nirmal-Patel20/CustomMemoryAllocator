@@ -139,7 +139,7 @@ size_t allocator::stack_allocator::getAllocatedSize() const {
     size_t totalAllocated = 0;
 
     for (auto& buffer : buffers) {
-        totalAllocated = buffer.offset;
+        totalAllocated += buffer.offset;
     }
     return totalAllocated;
 }
