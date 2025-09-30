@@ -211,3 +211,41 @@ void allocator::stack_allocator::allocate_new_buffer() {
 void allocator::stack_allocator::setAllocatorName(std::string_view name) {
     m_allocator = name;
 }
+
+const std::pair<size_t, size_t> allocator::stack_allocator::mark() {
+    return {buffers.size(), buffers.back().offset};
+}
+
+void allocator::stack_allocator::reset_to_mark(const std::pair<size_t, size_t>& mark) {
+
+    if (buffers.empty()) {
+        throw std::invalid_argument(m_allocator +
+                                    ": reset_to_mark() called on a non-memory owning allocator");
+    }
+
+    auto [markTimeSize, offset] = mark;
+    auto bufferSize = buffers.size();
+
+    int sizeDiff = bufferSize - markTimeSize;
+
+    // Negative sizeDiff means the mark was taken when more buffers existed.
+    // This usually indicates an invalid usage: trying to deallocate/reset
+    // to a mark from the "future" (after some buffers have already been released
+    if (sizeDiff < 0) {
+        throw std::runtime_error(
+            m_allocator + ": invalid mark. Current buffer count = " + std::to_string(bufferSize) +
+            ", mark expected at least = " + std::to_string(markTimeSize));
+    }
+
+    if (sizeDiff == 0 && buffers.back().offset < offset) {
+        throw std::runtime_error(m_allocator + ": invalid mark. Mark offset (" +
+                                 std::to_string(offset) + ") is ahead of current buffer offset (" +
+                                 std::to_string(buffers.back().offset) + ")");
+    }
+
+    while (buffers.size() > markTimeSize) {
+        buffers.pop_back();
+    }
+
+    buffers.back().offset = offset;
+}

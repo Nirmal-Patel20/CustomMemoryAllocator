@@ -15,6 +15,8 @@ class stack_allocator : public AllocatorInterface {
     void reset() override;
     void releaseMemory();
     void setAllocatorName(std::string_view name);
+    const std::pair<size_t, size_t> mark();
+    void reset_to_mark(const std::pair<size_t, size_t>& mark);
 
   private:
     void allocate_new_buffer();
