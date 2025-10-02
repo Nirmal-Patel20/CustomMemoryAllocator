@@ -50,13 +50,13 @@ target_compile_definitions(allocator
         $<$<NOT:$<CONFIG:Debug>>:ALLOCATOR_DEBUG=0>
 )
 
-option(BUILD_EXAMPLES "Build example programs" ON)
+option(BUILD_EXAMPLES "Build example programs" OFF)
 if(BUILD_EXAMPLES)
     add_subdirectory(examples)
 endif()
 
 # Tests
-option(BUILD_TESTS "Build tests" ON)
+option(BUILD_TESTS "Build tests" OFF)
 if(BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests)
