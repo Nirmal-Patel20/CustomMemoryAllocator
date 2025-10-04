@@ -382,8 +382,8 @@ TEST_CASE("stack_allocator - Pass alignment is more than alignof(max_align_t) us
 TEST_CASE("stack Allocator - allocating speed(stack vs Malloc)(64 bytes)",
           "[stack_allocator][benchmark][comparison]") {
 
-    allocator::DebugGuard no_debug(false);
-    allocator::CapacityGuard no_capacity_checks(false);
+    allocatorChecks::DebugGuard no_debug(false);
+    allocatorChecks::CapacityGuard no_capacity_checks(false);
 
     const size_t OBJECT_SIZE = 64;
     const size_t NUM_OBJECTS = 5000;
@@ -428,8 +428,8 @@ TEST_CASE("stack Allocator - allocation and deallocation speed(stack vs Malloc)(
     const size_t NUM_OBJECTS = 5000;
     const size_t STACK_SIZE = OBJECT_SIZE * NUM_OBJECTS;
 
-    allocator::DebugGuard no_debug(false);
-    allocator::CapacityGuard no_capacity_checks(false);
+    allocatorChecks::DebugGuard no_debug(false);
+    allocatorChecks::CapacityGuard no_capacity_checks(false);
 
     // Test stack
     BENCHMARK_ADVANCED("stack speed (LIFO deallocation)")(Catch::Benchmark::Chronometer meter) {
@@ -523,7 +523,7 @@ TEST_CASE("stack Allocator - Realistic Game Pattern", "[stack_allocator][benchma
         std::array<float, 16> data; // column-major or row-major
     };
 
-    allocator::DebugGuard(false); // Simulate release mode
+    allocatorChecks::DebugGuard no_debug(false); // Simulate release mode
 
     BENCHMARK_ADVANCED("Game-Simulation")(Catch::Benchmark::Chronometer meter) {
 
@@ -560,8 +560,6 @@ TEST_CASE("stack Allocator - Realistic Game Pattern", "[stack_allocator][benchma
             }
         });
     };
-
-    allocator::g_debug_checks = true;
 }
 
 TEST_CASE("stack Allocator - Alignment Overhead",

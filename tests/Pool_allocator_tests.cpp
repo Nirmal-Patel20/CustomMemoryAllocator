@@ -133,8 +133,8 @@ TEST_CASE("Pool Allocator - alignment must be between alignof(int) and alignof(m
 TEST_CASE("Pool Allocator - allocating speed(Pool vs Malloc)(64 bytes)",
           "[pool_allocator][benchmark][comparison]") {
 
-    allocator::DebugGuard no_debug(false);
-    allocator::CapacityGuard no_capacity_checks(false);
+    allocatorChecks::DebugGuard no_debug(false);
+    allocatorChecks::CapacityGuard no_capacity_checks(false);
 
     const size_t OBJECT_SIZE = 64;
     const size_t NUM_OBJECTS = 5000;
@@ -177,8 +177,8 @@ TEST_CASE("Pool Allocator - allocating speed(Pool vs Malloc)(64 bytes)",
 TEST_CASE("Pool Allocator - Deallocating speed(Pool vs Malloc)(64 bytes)",
           "[pool_allocator][benchmark][comparison]") {
 
-    allocator::DebugGuard no_debug(false);
-    allocator::CapacityGuard no_capacity_checks(false);
+    allocatorChecks::DebugGuard no_debug(false);
+    allocatorChecks::CapacityGuard no_capacity_checks(false);
 
     const size_t OBJECT_SIZE = 64;
     const size_t NUM_OBJECTS = 5000;
@@ -236,7 +236,7 @@ TEST_CASE("Pool Allocator - Deallocating speed(Pool vs Malloc)(64 bytes)",
 
 TEST_CASE("Pool allocator - Pool Growth Cost", "[pool_allocator][benchmark][growthCost]") {
 
-    allocator::DebugGuard no_debug(false);
+    allocatorChecks::DebugGuard no_debug(false);
 
     BENCHMARK_ADVANCED("Growth-Performance")(Catch::Benchmark::Chronometer meter) {
         allocator::pool_allocator pool(64, 100);
@@ -260,7 +260,7 @@ TEST_CASE("Pool allocator - Pool Growth Cost", "[pool_allocator][benchmark][grow
 
 TEST_CASE("Pool Allocator - Realistic Game Pattern", "[pool_allocator][benchmark][gamePattern]") {
 
-    allocator::DebugGuard no_debug(false);
+    allocatorChecks::DebugGuard no_debug(false);
 
     struct Bullet {
         float position;
