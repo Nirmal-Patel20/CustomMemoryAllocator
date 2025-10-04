@@ -112,7 +112,8 @@ void allocator::stack_allocator::deallocate(void* ptr) {
         }
 
         size_t size = top_ptr - raw_ptr;
-        if (size >= lastbuffer.offset) {
+        if (size > lastbuffer.offset) {
+            std::cout << "size: " << size << ", " << "offset: " << lastbuffer.offset << "\n";
             throw std::runtime_error(m_allocator + ": Calculated deallocation size exceeds current "
                                                    "allocated offset; memory corruption suspected");
         }
