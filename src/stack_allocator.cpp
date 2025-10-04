@@ -3,7 +3,7 @@
 allocator::stack_allocator::stack_allocator(size_t bufferSize, size_t alignment, bool resizable)
     : m_bufferSize(bufferSize), m_resizable(resizable) {
 
-    if (bufferSize > MAX_CAPACITY && allocator::g_capacity_checks.load(std::memory_order_relaxed)) {
+    if (bufferSize > MAX_CAPACITY) {
         throw std::invalid_argument(m_allocator + ": Requested size exceeds maximum capacity(" +
                                     std::to_string(MAX_CAPACITY / (1024 * 1024)) + " MB).");
     }
@@ -32,7 +32,7 @@ allocator::stack_allocator::~stack_allocator() {
 
 void* allocator::stack_allocator::allocate(size_t size, size_t alignment) {
     if (!m_ownsMemory) {
-        allocator::throwAllocationError(m_allocator, "Allocator has released its memory");
+        throwAllocationError(m_allocator, "Allocator has released its memory");
     }
 
     if (alignment == 0) {
@@ -50,8 +50,8 @@ void* allocator::stack_allocator::allocate(size_t size, size_t alignment) {
     auto alignSize = getAlignedSize(size, alignment);
 
     if (alignSize > m_bufferSize) {
-        allocator::throwAllocationError(m_allocator, "Requested size exceeds buffer size(" +
-                                                         std::to_string(m_bufferSize) + " bytes");
+        throwAllocationError(m_allocator, "Requested size exceeds buffer size(" +
+                                              std::to_string(m_bufferSize) + " bytes");
     }
 
     auto& lastbuffer = buffers.back();
@@ -61,7 +61,7 @@ void* allocator::stack_allocator::allocate(size_t size, size_t alignment) {
         lastbuffer.offset += alignSize;
 
 #if ALLOCATOR_DEBUG
-        if (allocator::g_debug_checks.load(std::memory_order_relaxed)) {
+        if (allocatorChecks::g_debug_checks.load(std::memory_order_relaxed)) {
             allocation_history.push_back({ptr, alignSize});
         }
 #endif
@@ -87,7 +87,7 @@ void allocator::stack_allocator::deallocate(void* ptr) {
     auto& lastbuffer = buffers.back();
 
 #if ALLOCATOR_DEBUG
-    if (allocator::g_debug_checks.load(std::memory_order_relaxed)) {
+    if (allocatorChecks::g_debug_checks.load(std::memory_order_relaxed)) {
         auto& last_alloc = allocation_history.back();
         if (last_alloc.ptr != ptr) {
             throw std::invalid_argument(m_allocator + ": Invalid LIFO deallocation order");
@@ -103,25 +103,16 @@ void allocator::stack_allocator::deallocate(void* ptr) {
 
         // release or debug check are off:
         // Assume ptr is the last allocation (LIFO)
+        auto raw_ptr = static_cast<std::byte*>(ptr);
+        auto top_ptr = lastbuffer.memory.get() + lastbuffer.offset;
 
-        auto start = reinterpret_cast<std::uintptr_t>(lastbuffer.memory.get());
-        auto raw_ptr = reinterpret_cast<std::uintptr_t>(ptr);
-
-        if (raw_ptr < start || raw_ptr >= start + lastbuffer.size) {
-            throw std::runtime_error(
-                m_allocator + ": Pointer does not belong to last chunk inside this allocator");
+        if (raw_ptr >= top_ptr) {
+            throw std::invalid_argument(
+                m_allocator + ": Pointer is beyond current top; memory corruption suspected");
         }
 
-        auto top_ptr = start + lastbuffer.offset;
-
-        if (raw_ptr > top_ptr) {
-            throw std::invalid_argument(m_allocator +
-                                        ": Pointer is beyond current top; deallocation must follow "
-                                        "LIFO order or memory corruption suspected");
-        }
-
-        size_t size = reinterpret_cast<size_t>(top_ptr - raw_ptr);
-        if (size > lastbuffer.offset) {
+        size_t size = top_ptr - raw_ptr;
+        if (size >= lastbuffer.offset) {
             throw std::runtime_error(m_allocator + ": Calculated deallocation size exceeds current "
                                                    "allocated offset; memory corruption suspected");
         }
@@ -189,15 +180,14 @@ void allocator::stack_allocator::releaseMemory() {
 }
 
 void allocator::stack_allocator::allocate_new_buffer() {
-    if (m_ownsMemory && allocator::g_capacity_checks.load(
+    if (m_ownsMemory && allocatorChecks::g_capacity_checks.load(
                             std::memory_order_relaxed)) { // allow benchmarks to opt out
         if (!m_resizable) {
-            allocator::throwAllocationError(m_allocator,
-                                            "Cannot allocate new buffer in non-resizable mode");
+            throwAllocationError(m_allocator, "Cannot allocate new buffer in non-resizable mode");
         } else if (m_resizable && (m_bufferSize * (buffers.size() + 1) > MAX_CAPACITY)) {
-            allocator::throwAllocationError(
-                m_allocator, "Exceeds maximum capacity(" +
-                                 std::to_string(MAX_CAPACITY / (1024 * 1024)) + " MB)");
+            throwAllocationError(m_allocator, "Exceeds maximum capacity(" +
+                                                  std::to_string(MAX_CAPACITY / (1024 * 1024)) +
+                                                  " MB)");
         }
     }
 

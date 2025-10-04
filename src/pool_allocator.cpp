@@ -43,11 +43,11 @@ allocator::pool_allocator::~pool_allocator() {
 
 void* allocator::pool_allocator::allocate(size_t size, [[maybe_unused]] size_t alignment) {
     if (size > m_blockSize) {
-        allocator::throwAllocationError(m_allocator, "Requested size exceeds block size");
+        throwAllocationError(m_allocator, "Requested size exceeds block size");
     }
 
     if (!m_ownsMemory) {
-        allocator::throwAllocationError(m_allocator, "Allocator has released its memory");
+        throwAllocationError(m_allocator, "Allocator has released its memory");
     }
 
     for (auto& p : pools) {
@@ -90,7 +90,7 @@ void allocator::pool_allocator::deallocate(void* ptr) {
 
             // Optional: debug-only double-free detection.
             // This is O(n) but invaluable during development.
-            if (allocator::g_debug_checks.load(
+            if (allocatorChecks::g_debug_checks.load(
                     std::memory_order_relaxed)) { // allow benchmarks to opt out
                 for (void* walk = pool.free_list_head; walk != nullptr;
                      walk = *reinterpret_cast<void**>(walk)) {
@@ -155,15 +155,15 @@ void allocator::pool_allocator::releaseMemory() {
 
 void allocator::pool_allocator::allocate_new_pool() {
 
-    if (m_ownsMemory && allocator::g_capacity_checks.load(
+    if (m_ownsMemory && allocatorChecks::g_capacity_checks.load(
                             std::memory_order_relaxed)) { // allow benchmarks to opt out
         if (m_poolSize * (pools.size() + 1) > MAX_CAPACITY) {
-            allocator::throwAllocationError(m_allocator, "Exceeds maximum capacity(64 MB)");
+            throwAllocationError(m_allocator, "Exceeds maximum capacity(64 MB)");
         }
 
         if (m_maxPools != 0 && ((pools.size() + 1) > m_maxPools)) {
-            allocator::throwAllocationError(m_allocator, "Exceeds maximum pool count : " +
-                                                             std::to_string(m_maxPools));
+            throwAllocationError(m_allocator,
+                                 "Exceeds maximum pool count : " + std::to_string(m_maxPools));
         }
     }
 
