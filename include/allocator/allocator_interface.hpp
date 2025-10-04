@@ -27,6 +27,17 @@ class AllocatorInterface {
     static bool isAlignmentPowerOfTwo(size_t alignment) {
         return (alignment != 0) && ((alignment & (alignment - 1)) == 0);
     }
+
+    // make error handling configurable. In debug mode, throw detailed exceptions.
+    // In release mode, throw std::bad_alloc for allocation failures.
+    static void throwAllocationError([[maybe_unused]] std::string allocationType,
+                                     [[maybe_unused]] std::string message) {
+#if ALLOCATOR_DEBUG
+        throw std::runtime_error("Allocation Error in " + allocationType + ": " + message);
+#else
+        throw std::bad_alloc();
+#endif
+    }
 };
 
 // Adapter class for using AllocatorInterface with standard STL containers.

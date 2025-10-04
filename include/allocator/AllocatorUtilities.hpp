@@ -15,18 +15,7 @@
 #endif
 #endif
 
-namespace allocator {
-
-// make error handling configurable. In debug mode, throw detailed exceptions.
-// In release mode, throw std::bad_alloc for allocation failures.
-inline void throwAllocationError([[maybe_unused]] std::string allocationType,
-                                 [[maybe_unused]] std::string message) {
-#if ALLOCATOR_DEBUG
-    throw std::runtime_error("Allocation Error in " + allocationType + ": " + message);
-#else
-    throw std::bad_alloc();
-#endif
-}
+namespace allocatorChecks {
 
 // Global debug flags
 #if ALLOCATOR_DEBUG
@@ -71,6 +60,6 @@ inline constexpr bool g_capacity_checks = true;
 
 // No guard classes in release mode
 #endif
-} // namespace allocator
+} // namespace allocatorChecks
 
 #endif // ALLOCATORUTILITIES_HPP
