@@ -586,7 +586,7 @@ TEST_CASE("stack Allocator - Alignment Overhead",
         SECTION(test.description) {
 
             // Get actual object size after alignment
-            stack.allocate(test.raw_size);
+            void* ptr = stack.allocate(test.raw_size);
             size_t actual_size = stack.getObjectSize();
             // Calculate overhead
             size_t padding = actual_size - test.raw_size;
