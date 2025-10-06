@@ -8,11 +8,11 @@ class stack_allocator : public AllocatorInterface {
     stack_allocator(size_t bufferSize, size_t alignment = 0, bool m_resizable = false);
     ~stack_allocator() override;
 
-    void* allocate(size_t size, size_t alignment = 0) override;
-    void deallocate(void* ptr = nullptr) override;
-    size_t getAllocatedSize() const override;
-    size_t getObjectSize() const override;
-    void reset() override;
+    [[nodiscard]] virtual void* allocate(size_t size, size_t alignment = 0) override;
+    virtual void deallocate(void* ptr) override;
+    virtual size_t getAllocatedSize() const override;
+    virtual size_t getObjectSize() const override;
+    virtual void reset() override;
     void releaseMemory();
     void setAllocatorName(std::string_view name);
     const std::pair<size_t, size_t> mark();
