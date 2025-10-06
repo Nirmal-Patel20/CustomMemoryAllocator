@@ -12,7 +12,9 @@ class pool_allocator : public AllocatorInterface {
                             size_t maxPools = 0);
     ~pool_allocator() override;
 
-    virtual void* allocate(size_t size, [[maybe_unused]] size_t alignment = 0) override;
+    [[nodiscard]] virtual void* allocate(size_t size,
+                                         [[maybe_unused]] size_t alignment = 0) override;
+    [[nodiscard]] void* allocate();
     virtual void deallocate(void* ptr) override;
     virtual size_t getAllocatedSize() const override;
     virtual size_t getObjectSize() const override;

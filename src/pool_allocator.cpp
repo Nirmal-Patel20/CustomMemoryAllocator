@@ -42,10 +42,19 @@ allocator::pool_allocator::~pool_allocator() {
 }
 
 void* allocator::pool_allocator::allocate(size_t size, [[maybe_unused]] size_t alignment) {
+
+    // This function exists solely to support polymorphism.
+    // The actual memory allocation is handled by allocate() without arguments,
+    // which simply returns a free block.
+
     if (size > m_blockSize) {
         throwAllocationError(m_allocator, "Requested size exceeds block size");
     }
 
+    return allocate();
+}
+
+void* allocator::pool_allocator::allocate() {
     if (!m_ownsMemory) {
         throwAllocationError(m_allocator, "Allocator has released its memory");
     }
@@ -62,7 +71,7 @@ void* allocator::pool_allocator::allocate(size_t size, [[maybe_unused]] size_t a
     }
 
     allocate_new_pool();
-    return allocate(size, alignment);
+    return allocate();
 }
 
 void allocator::pool_allocator::deallocate(void* ptr) {
