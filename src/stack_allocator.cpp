@@ -1,4 +1,5 @@
 #include "allocator/stack_allocator.hpp"
+#include <stdexcept>
 
 allocator::stack_allocator::stack_allocator(size_t bufferSize, size_t alignment, bool resizable)
     : m_bufferSize(bufferSize), m_resizable(resizable) {
@@ -59,6 +60,7 @@ void* allocator::stack_allocator::allocate(size_t size, size_t alignment) {
     if (lastbuffer.offset + alignSize <= lastbuffer.size) {
         void* ptr = lastbuffer.memory.get() + lastbuffer.offset;
         lastbuffer.offset += alignSize;
+        m_lastallocation = alignSize;
 
 #if ALLOCATOR_DEBUG
         if (allocatorChecks::g_debug_checks.load(std::memory_order_relaxed)) {
@@ -87,39 +89,30 @@ void allocator::stack_allocator::deallocate(void* ptr) {
     auto& lastbuffer = buffers.back();
 
 #if ALLOCATOR_DEBUG
-    if (allocatorChecks::g_debug_checks.load(std::memory_order_relaxed)) {
-        auto& last_alloc = allocation_history.back();
-        if (last_alloc.ptr != ptr) {
-            throw std::invalid_argument(m_allocator + ": Invalid LIFO deallocation order");
-        }
-
-        lastbuffer.offset -= last_alloc.size;
-        allocation_history.pop_back();
-    } else
-#endif
-    {
-        // Note: The 'else' above pairs with the debug 'if' only if ALLOCATOR_DEBUG is defined.
-        // If ALLOCATOR_DEBUG is not defined, this block always runs.
-
-        // release or debug check are off:
-        // Assume ptr is the last allocation (LIFO)
-        auto raw_ptr = static_cast<std::byte*>(ptr);
-        auto top_ptr = lastbuffer.memory.get() + lastbuffer.offset;
-
-        if (raw_ptr >= top_ptr) {
-            throw std::invalid_argument(
-                m_allocator + ": Pointer is beyond current top; memory corruption suspected");
-        }
-
-        size_t size = top_ptr - raw_ptr;
-        if (size > lastbuffer.offset) {
-            std::cout << "size: " << size << ", " << "offset: " << lastbuffer.offset << "\n";
-            throw std::runtime_error(m_allocator + ": Calculated deallocation size exceeds current "
-                                                   "allocated offset; memory corruption suspected");
-        }
-
-        lastbuffer.offset -= size;
+    auto& last_alloc = allocation_history.back();
+    if (last_alloc.ptr != ptr) {
+        throw std::invalid_argument(m_allocator + ": Invalid LIFO deallocation order");
     }
+#endif
+
+    // release or debug check are off:
+    // Assume ptr is the last allocation (LIFO)
+    auto raw_ptr = static_cast<std::byte*>(ptr);
+    auto top_ptr = lastbuffer.memory.get() + lastbuffer.offset;
+
+    if (raw_ptr >= top_ptr) {
+        throw std::invalid_argument(m_allocator +
+                                    ": Pointer is beyond current top; memory corruption suspected");
+    }
+
+    size_t size = top_ptr - raw_ptr;
+    if (size > lastbuffer.offset) {
+        throw std::runtime_error(m_allocator + ": Calculated deallocation size exceeds current "
+                                               "allocated offset; memory corruption suspected");
+    }
+
+    lastbuffer.offset -= size;
+    m_lastallocation = 0;
 
     // Drop empty buffer unless it's the only one
     if (lastbuffer.offset == 0 && buffers.size() > 1) {
@@ -144,7 +137,7 @@ size_t allocator::stack_allocator::getObjectSize() const {
         lastObjectSize = allocation_history.back().size;
     }
 #else
-    throw std::runtime_error(m_allocator + ": getObjectSize() is only available in debug mode.");
+    lastObjectSize = m_lastallocation;
 #endif
 
     return lastObjectSize; // Size of the last allocated object
@@ -173,16 +166,17 @@ void allocator::stack_allocator::reset() {
 
 void allocator::stack_allocator::releaseMemory() {
     buffers.clear();
+
 #if ALLOCATOR_DEBUG
     // Clear allocation history
     allocation_history.clear();
 #endif
+
     m_ownsMemory = false;
 }
 
 void allocator::stack_allocator::allocate_new_buffer() {
-    if (m_ownsMemory && allocatorChecks::g_capacity_checks.load(
-                            std::memory_order_relaxed)) { // allow benchmarks to opt out
+    if (m_ownsMemory) {
         if (!m_resizable) {
             throwAllocationError(m_allocator, "Cannot allocate new buffer in non-resizable mode");
         } else if (m_resizable && (m_bufferSize * (buffers.size() + 1) > MAX_CAPACITY)) {

@@ -2,7 +2,6 @@
 #define POOL_ALLOCATOR_HPP
 
 #include "allocator/allocator_interface.hpp"
-#include <iostream>
 #include <vector>
 
 namespace allocator {

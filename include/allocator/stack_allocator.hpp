@@ -38,8 +38,9 @@ class stack_allocator : public AllocatorInterface {
         size_t offset = 0;                   // Current allocation offset
     };
 
-    size_t m_alignment;          // Default alignment
-    size_t m_bufferSize;         // Default buffer size
+    size_t m_alignment;  // Default alignment
+    size_t m_bufferSize; // Default buffer size
+    size_t m_lastallocation;
     std::vector<buffer> buffers; // All allocated buffers
     bool m_resizable = false;    // configurable
     bool m_ownsMemory = false;   // check if the allocator owns the memory
