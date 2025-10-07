@@ -22,7 +22,8 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "BUILD_TESTS": "OFF",
-        "BUILD_EXAMPLES": "ON"
+        "BUILD_EXAMPLES": "ON",
+        "BUILD_BENCHMARKS": "ON"
       }
     }
   ],

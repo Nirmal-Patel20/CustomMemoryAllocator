@@ -61,3 +61,10 @@ if(BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests)
 endif()
+
+# Benchmarks
+option(BUILD_BENCHMARKS "Build benchmarks" OFF)
+if(BUILD_BENCHMARKS)
+    enable_testing()
+    add_subdirectory(benchmark)
+endif()
