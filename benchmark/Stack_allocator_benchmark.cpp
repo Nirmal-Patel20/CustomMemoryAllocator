@@ -4,47 +4,8 @@
 #include <catch2/catch_test_macros.hpp>
 #include <iostream>
 
-TEST_CASE("stack Allocator - allocating speed(stack vs Malloc)(64 bytes)",
-          "[stack_allocator][benchmark][comparison]") {
-
-    const size_t OBJECT_SIZE = 64;
-    const size_t NUM_OBJECTS = 5000;
-    const size_t STACK_SIZE = OBJECT_SIZE * NUM_OBJECTS;
-
-    // Test malloc
-    // Allocation speed
-    BENCHMARK_ADVANCED("stack allocating speed")(Catch::Benchmark::Chronometer meter) {
-
-        allocator::stack_allocator stack(STACK_SIZE, 8, true); // resizable for benchmark
-        std::vector<void*> ptrs;
-
-        meter.measure([&] {
-            for (size_t i = 0; i < NUM_OBJECTS; ++i) {
-                ptrs.push_back(stack.allocate(OBJECT_SIZE));
-            }
-        });
-
-        stack.releaseMemory();
-    };
-
-    BENCHMARK_ADVANCED("Malloc allocating speed")(Catch::Benchmark::Chronometer meter) {
-
-        std::vector<void*> ptrs;
-
-        meter.measure([&] {
-            for (size_t i = 0; i < NUM_OBJECTS; ++i) {
-                ptrs.push_back(malloc(OBJECT_SIZE));
-            }
-        });
-
-        for (auto ptr : ptrs) {
-            free(ptr);
-        }
-    };
-}
-
 TEST_CASE("stack Allocator - allocation and deallocation speed(stack vs Malloc)(64 bytes)",
-          "[stack_allocator][benchmark][comparison]") {
+          "[stack_allocator][comparison]") {
 
     const size_t OBJECT_SIZE = 64;
     const size_t NUM_OBJECTS = 5000;
@@ -83,6 +44,7 @@ TEST_CASE("stack Allocator - allocation and deallocation speed(stack vs Malloc)(
             }
 
             stack.reset();
+            ptrs.clear();
         });
     };
 
@@ -106,7 +68,7 @@ TEST_CASE("stack Allocator - allocation and deallocation speed(stack vs Malloc)(
     };
 }
 
-TEST_CASE("stack allocator - stack Growth Cost", "[stack_allocator][benchmark][growthCost]") {
+TEST_CASE("stack allocator - stack Growth Cost", "[stack_allocator][growthCost]") {
 
     BENCHMARK_ADVANCED("Growth-Performance")(Catch::Benchmark::Chronometer meter) {
         allocator::stack_allocator stack(640, 8, true);
@@ -121,6 +83,8 @@ TEST_CASE("stack allocator - stack Growth Cost", "[stack_allocator][benchmark][g
                 }
                 // Next allocation will trigger stack growth
             }
+
+            stack.reset();
         });
 
         // Cleanup
@@ -128,7 +92,7 @@ TEST_CASE("stack allocator - stack Growth Cost", "[stack_allocator][benchmark][g
     };
 }
 
-TEST_CASE("stack Allocator - Realistic Game Pattern", "[stack_allocator][benchmark][gamePattern]") {
+TEST_CASE("stack Allocator - Realistic Game Pattern", "[stack_allocator][gamePattern]") {
 
     allocator::stack_allocator frame_stack(1 * 1024 * 1024); // 1MB frame budget
 
@@ -179,8 +143,7 @@ TEST_CASE("stack Allocator - Realistic Game Pattern", "[stack_allocator][benchma
     };
 }
 
-TEST_CASE("stack Allocator - Alignment Overhead",
-          "[stack_allocator][benchmark][alignmentOverhead]") {
+TEST_CASE("stack Allocator - Alignment Overhead", "[stack_allocator][alignmentOverhead]") {
 
     // Test different object sizes to show alignment impact
     struct TestData {
@@ -201,6 +164,8 @@ TEST_CASE("stack Allocator - Alignment Overhead",
         allocator::stack_allocator stack(1024);
 
         SECTION(test.description) {
+
+            std::cout << test.description << std::endl;
 
             // Get actual object size after alignment
             [[maybe_unused]] void* ptr = stack.allocate(test.raw_size);

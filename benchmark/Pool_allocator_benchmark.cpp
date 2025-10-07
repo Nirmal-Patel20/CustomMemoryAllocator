@@ -3,48 +3,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <iostream>
 
-TEST_CASE("Pool Allocator - allocating speed(Pool vs Malloc)(64 bytes)",
-          "[pool_allocator][comparison]") {
-
-    const size_t OBJECT_SIZE = 64;
-    const size_t NUM_OBJECTS = 5000;
-
-    // Test malloc
-    // Allocation speed
-    BENCHMARK_ADVANCED("Pool allocating speed")(Catch::Benchmark::Chronometer meter) {
-
-        allocator::pool_allocator pool(OBJECT_SIZE, NUM_OBJECTS);
-
-        std::vector<void*> ptrs;
-
-        meter.measure([&] {
-            for (size_t i = 0; i < NUM_OBJECTS; ++i) {
-                ptrs.push_back(pool.allocate(OBJECT_SIZE));
-            }
-        });
-
-        for (auto ptr : ptrs) {
-            pool.deallocate(ptr);
-        }
-    };
-
-    BENCHMARK_ADVANCED("Malloc allocating speed")(Catch::Benchmark::Chronometer meter) {
-
-        std::vector<void*> ptrs;
-
-        meter.measure([&] {
-            for (size_t i = 0; i < NUM_OBJECTS; ++i) {
-                ptrs.push_back(malloc(OBJECT_SIZE));
-            }
-        });
-
-        for (auto ptr : ptrs) {
-            free(ptr);
-        }
-    };
-}
-
-TEST_CASE("Pool Allocator - Deallocating speed(Pool vs Malloc)(64 bytes)",
+TEST_CASE("Pool Allocator - allocation and deallocation speed(Pool vs Malloc)(64 bytes)",
           "[pool_allocator][comparison]") {
 
     const size_t OBJECT_SIZE = 64;
@@ -55,10 +14,10 @@ TEST_CASE("Pool Allocator - Deallocating speed(Pool vs Malloc)(64 bytes)",
         Catch::Benchmark::Chronometer meter) {
         allocator::pool_allocator pool(OBJECT_SIZE, NUM_OBJECTS);
 
-        meter.measure([&] {
-            std::vector<void*> ptrs;
-            ptrs.reserve(NUM_OBJECTS);
+        std::vector<void*> ptrs;
+        ptrs.reserve(NUM_OBJECTS);
 
+        meter.measure([&] {
             for (size_t i = 0; i < NUM_OBJECTS; ++i) {
                 ptrs.push_back(pool.allocate(OBJECT_SIZE));
             }
@@ -66,30 +25,32 @@ TEST_CASE("Pool Allocator - Deallocating speed(Pool vs Malloc)(64 bytes)",
             for (auto ptr : ptrs) {
                 pool.deallocate(ptr);
             }
+
+            ptrs.clear();
         });
     };
 
     BENCHMARK_ADVANCED("Pool speed (Mass deallocation)")(Catch::Benchmark::Chronometer meter) {
         allocator::pool_allocator pool(OBJECT_SIZE, NUM_OBJECTS);
 
-        meter.measure([&] {
-            std::vector<void*> ptrs;
-            ptrs.reserve(NUM_OBJECTS);
+        std::vector<void*> ptrs;
+        ptrs.reserve(NUM_OBJECTS);
 
+        meter.measure([&] {
             for (size_t i = 0; i < NUM_OBJECTS; ++i) {
                 ptrs.push_back(pool.allocate(OBJECT_SIZE));
             }
 
             pool.reset();
+            ptrs.clear();
         });
     };
 
     BENCHMARK_ADVANCED("Malloc speed")(Catch::Benchmark::Chronometer meter) {
+        std::vector<void*> ptrs;
+        ptrs.reserve(NUM_OBJECTS);
 
         meter.measure([&] {
-            std::vector<void*> ptrs;
-            ptrs.reserve(NUM_OBJECTS);
-
             for (size_t i = 0; i < NUM_OBJECTS; ++i) {
                 ptrs.push_back(malloc(OBJECT_SIZE));
             }
@@ -97,6 +58,7 @@ TEST_CASE("Pool Allocator - Deallocating speed(Pool vs Malloc)(64 bytes)",
             for (auto ptr : ptrs) {
                 free(ptr);
             }
+            ptrs.clear();
         });
     };
 }
@@ -188,6 +150,9 @@ TEST_CASE("Pool Allocator - Alignment Overhead", "[pool_allocator][alignmentOver
     for (const auto& test : test_cases) {
 
         SECTION(test.description) {
+
+            std::cout << test.description << std::endl;
+
             allocator::pool_allocator pool(test.raw_size, 100);
 
             // Get actual object size after alignment
