@@ -63,9 +63,7 @@ void* allocator::stack_allocator::allocate(size_t size, size_t alignment) {
         m_lastallocation = alignSize;
 
 #if ALLOCATOR_DEBUG
-        if (allocatorChecks::g_debug_checks.load(std::memory_order_relaxed)) {
-            allocation_history.push_back({ptr, alignSize});
-        }
+        allocation_history.push_back({ptr, alignSize});
 #endif
 
         return ptr;
