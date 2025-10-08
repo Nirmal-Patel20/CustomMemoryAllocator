@@ -145,6 +145,11 @@ TEST_CASE("stack Allocator - Realistic Game Pattern", "[stack_allocator][gamePat
 
 TEST_CASE("stack Allocator - Alignment Overhead", "[stack_allocator][alignmentOverhead]") {
 
+    std::cerr << "--------------------------------------------------" << std::endl;
+    std::cerr << "Running Stack Allocator - Alignment Overhead" << std::endl;
+    std::cerr << "--------------------------------------------------"
+              << std::endl; // top-level code
+
     // Test different object sizes to show alignment impact
     struct TestData {
         size_t raw_size;
@@ -165,6 +170,8 @@ TEST_CASE("stack Allocator - Alignment Overhead", "[stack_allocator][alignmentOv
 
         SECTION(test.description) {
 
+            std::cerr << "--------------------------------------------------" << std::endl;
+
             std::cout << test.description << std::endl;
 
             // Get actual object size after alignment
@@ -181,6 +188,8 @@ TEST_CASE("stack Allocator - Alignment Overhead", "[stack_allocator][alignmentOv
 
             // Verify it matches expected
             REQUIRE(actual_size == test.expected_aligned_size);
+
+            std::cerr << "--------------------------------------------------" << std::endl;
         }
     }
 }

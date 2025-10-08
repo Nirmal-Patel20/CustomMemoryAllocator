@@ -66,8 +66,10 @@ TEST_CASE("Pool Allocator - allocation and deallocation speed(Pool vs Malloc)(64
 TEST_CASE("Pool allocator - Pool Growth Cost", "[pool_allocator][growthCost]") {
 
     BENCHMARK_ADVANCED("Growth-Performance")(Catch::Benchmark::Chronometer meter) {
-        allocator::pool_allocator pool(64, 100);
+        allocator::pool_allocator pool(64, 100, 8,
+                                       10); // 64 byte objects, 100 per pool, max 1000 pools
         std::vector<void*> all_ptrs;
+        all_ptrs.reserve(1000 * 10); // reserve for max capacity
 
         meter.measure([&] {
             // Force multiple pool allocations
@@ -78,6 +80,10 @@ TEST_CASE("Pool allocator - Pool Growth Cost", "[pool_allocator][growthCost]") {
                 }
                 // Next allocation will trigger pool growth
             }
+
+            // Cleanup
+            pool.reset(); // back to initial state
+            all_ptrs.clear();
         });
 
         // Cleanup
@@ -133,6 +139,10 @@ TEST_CASE("Pool Allocator - Realistic Game Pattern", "[pool_allocator][gamePatte
 
 TEST_CASE("Pool Allocator - Alignment Overhead", "[pool_allocator][alignmentOverhead]") {
 
+    std::cerr << "--------------------------------------------------" << std::endl;
+    std::cerr << "Running Pool Allocator - Alignment Overhead" << std::endl; // top-level code
+    std::cerr << "--------------------------------------------------" << std::endl;
+
     // Test different object sizes to show alignment impact
     struct TestData {
         size_t raw_size;
@@ -151,7 +161,7 @@ TEST_CASE("Pool Allocator - Alignment Overhead", "[pool_allocator][alignmentOver
 
         SECTION(test.description) {
 
-            std::cout << test.description << std::endl;
+            std::cerr << "--------------------------------------------------" << std::endl;
 
             allocator::pool_allocator pool(test.raw_size, 100);
 
@@ -168,6 +178,8 @@ TEST_CASE("Pool Allocator - Alignment Overhead", "[pool_allocator][alignmentOver
 
             // Verify it matches expected
             REQUIRE(actual_size == test.expected_aligned_size);
+
+            std::cerr << "--------------------------------------------------" << std::endl;
         }
     }
 }
