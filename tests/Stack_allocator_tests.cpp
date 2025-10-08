@@ -232,7 +232,7 @@ TEST_CASE("stack_allocator - reset_to_mark throws if no buffers exist",
 }
 
 // Reset throws if allocator has fewer buffers than the mark (negative sizeDiff)
-TEST_CASE("stack_allocator - reset_to_mark throws on negative sizeDiff",
+TEST_CASE("stack_allocator - reset_to_mark throws on negative sizeDiff of buffer",
           "[stack_allocator][basic]") {
     allocator::stack_allocator stack(32, 8, true);
 
