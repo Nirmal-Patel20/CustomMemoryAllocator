@@ -3,7 +3,7 @@
 
 allocator::pool_allocator::pool_allocator(size_t blockSize, size_t initial_capacity,
                                           size_t alignment, size_t maxPools)
-    : m_blockCount(initial_capacity), m_maxPools(maxPools) {
+    : m_blockCount(initial_capacity) {
 
     if (blockSize == 0 || initial_capacity == 0) {
         throw std::invalid_argument(m_allocator +
@@ -30,6 +30,12 @@ allocator::pool_allocator::pool_allocator(size_t blockSize, size_t initial_capac
 
     m_poolSize = m_blockSize * m_blockCount;
 
+    if (maxPools > 0) {
+        m_maxPools = maxPools;
+    } else {
+        m_maxPools = 1; // default to 1 if 0 or negative value is provided
+    }
+
     if (m_poolSize > MAX_CAPACITY) {
         throw std::invalid_argument(m_allocator +
                                     ": Requested pool size exceeds maximum capacity(64 MB).");
@@ -50,6 +56,10 @@ void* allocator::pool_allocator::allocate(size_t size, [[maybe_unused]] size_t a
 
     if (size > m_blockSize) {
         throwAllocationError(m_allocator, "Requested size exceeds block size");
+    }
+
+    if (size == 0) {
+        throw std::invalid_argument(m_allocator + ": Requested size must be greater than zero");
     }
 
     return allocate();
@@ -165,11 +175,17 @@ void allocator::pool_allocator::releaseMemory() {
 void allocator::pool_allocator::allocate_new_pool() {
 
     if (m_ownsMemory) {
+
+        if (m_maxPools == 0) {
+            throwAllocationError(m_allocator,
+                                 "No more pools can be allocated as maxPools is set to 0");
+        }
+
         if (m_poolSize * (pools.size() + 1) > MAX_CAPACITY) {
             throwAllocationError(m_allocator, "Exceeds maximum capacity(64 MB)");
         }
 
-        if (m_maxPools != 0 && ((pools.size() + 1) > m_maxPools)) {
+        if ((pools.size() + 1) > m_maxPools) {
             throwAllocationError(m_allocator,
                                  "Exceeds maximum pool count : " + std::to_string(m_maxPools));
         }
