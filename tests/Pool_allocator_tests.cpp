@@ -4,7 +4,8 @@
 
 // Allocate a block
 TEST_CASE("Pool Allocator - Allocate and deallocate blocks", "[pool_allocator][basic]") {
-    allocator::pool_allocator poolAllocator(32, 1000);
+    allocator::pool_allocator poolAllocator(
+        32, 1000); // cannot allocate more than 32 bytes as maxpool count is 1 by default
     void* ptr1 = poolAllocator.allocate(16);
     REQUIRE(ptr1 != nullptr);
 
@@ -21,6 +22,36 @@ TEST_CASE("Pool Allocator - Allocate multiple blocks", "[pool_allocator][basic]"
     REQUIRE(ptr2 != nullptr);
 
     // Deallocate the blocks
+    poolAllocator.deallocate(ptr1);
+    poolAllocator.deallocate(ptr2);
+}
+
+TEST_CASE("Pool Allocator - try to allocate more than initial pool", "[pool_allocator][basic]") {
+    allocator::pool_allocator poolAllocator(16,
+                                            2); // max pool count is 1 by default, so cannot grow
+    void* ptr1 = poolAllocator.allocate(16);
+    void* ptr2 = poolAllocator.allocate(16); // should be fine
+    REQUIRE(ptr1 != nullptr);
+    REQUIRE(ptr2 != nullptr);
+
+    // Next allocation should fail as it exceeds max pool count (1)
+    REQUIRE_THROWS_AS(poolAllocator.allocate(16), std::runtime_error);
+
+    // Deallocate the block
+    poolAllocator.deallocate(ptr1);
+    poolAllocator.deallocate(ptr2);
+}
+
+TEST_CASE("Pool Allocator - Allocate block that grows beyond initial pool",
+          "[pool_allocator][basic]") {
+    allocator::pool_allocator poolAllocator(
+        32, 1000, 8, 2); // can create 2 pools which means can allocate 64 bytes
+    void* ptr1 = poolAllocator.allocate(32);
+    void* ptr2 = poolAllocator.allocate(32); // should be fine, uses second pool
+    REQUIRE(ptr1 != nullptr);
+    REQUIRE(ptr2 != nullptr);
+
+    // Deallocate the block
     poolAllocator.deallocate(ptr1);
     poolAllocator.deallocate(ptr2);
 }
@@ -45,7 +76,7 @@ TEST_CASE("Pool Allocator - Reuse freed blocks", "[pool_allocator][basic]") {
     poolAllocator.deallocate(ptr2);
 }
 
-// Check allocated size (should be equal to pool size)
+// Check allocated size (should be equal to 0 as all blocks are freed)
 TEST_CASE("Pool Allocator - Check allocated size", "[pool_allocator][basic]") {
     allocator::pool_allocator poolAllocator(32, 1000);
     size_t allocatedSize = poolAllocator.getAllocatedSize();
