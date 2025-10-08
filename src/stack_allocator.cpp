@@ -91,6 +91,7 @@ void allocator::stack_allocator::deallocate(void* ptr) {
     if (last_alloc.ptr != ptr) {
         throw std::invalid_argument(m_allocator + ": Invalid LIFO deallocation order");
     }
+    allocation_history.pop_back();
 #endif
 
     // release or debug check are off:
