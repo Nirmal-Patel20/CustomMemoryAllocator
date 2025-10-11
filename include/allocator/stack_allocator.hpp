@@ -18,6 +18,12 @@ class stack_allocator : public AllocatorInterface {
     const std::pair<size_t, size_t> mark();
     void reset_to_mark(const std::pair<size_t, size_t>& mark);
 
+    // disable copy and move
+    stack_allocator(const stack_allocator&) = delete;
+    stack_allocator& operator=(const stack_allocator&) = delete;
+    stack_allocator(stack_allocator&&) = delete;
+    stack_allocator& operator=(stack_allocator&&) = delete;
+
   private:
     void allocate_new_buffer();
 

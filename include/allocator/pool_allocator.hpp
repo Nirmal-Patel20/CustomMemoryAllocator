@@ -21,6 +21,12 @@ class pool_allocator : public AllocatorInterface {
     void releaseMemory();
     void setAllocatorName(std::string_view name);
 
+    // disable copy and move
+    pool_allocator(const pool_allocator&) = delete;
+    pool_allocator& operator=(const pool_allocator&) = delete;
+    pool_allocator(pool_allocator&&) = delete;
+    pool_allocator& operator=(pool_allocator&&) = delete;
+
   private:
     struct pool {
         std::unique_ptr<std::byte[]> memory;
