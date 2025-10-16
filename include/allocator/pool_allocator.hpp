@@ -18,8 +18,8 @@ class pool_allocator : public AllocatorInterface {
     virtual size_t getAllocatedSize() const override;
     virtual size_t getObjectSize() const override;
     virtual void reset() override;
+    virtual void setAllocatorName(std::string_view name) override;
     void releaseMemory();
-    void setAllocatorName(std::string_view name);
 
     // disable copy and move
     pool_allocator(const pool_allocator&) = delete;

@@ -1,6 +1,12 @@
 #include "allocator/stack_allocator.hpp"
 #include <stdexcept>
 
+#if ALLOCATOR_DEBUG
+#define handle_allocation_error(msg) throwAllocationError(m_allocator, msg)
+#else
+#define handle_allocation_error(msg) return nullptr
+#endif
+
 allocator::stack_allocator::stack_allocator(size_t bufferSize, size_t alignment, bool resizable)
     : m_bufferSize(bufferSize), m_resizable(resizable) {
 
@@ -33,7 +39,7 @@ allocator::stack_allocator::~stack_allocator() {
 
 void* allocator::stack_allocator::allocate(size_t size, size_t alignment) {
     if (!m_ownsMemory) {
-        throwAllocationError(m_allocator, "Allocator has released its memory");
+        handle_allocation_error("Allocator has released its memory");
     }
 
     if (alignment == 0) {
@@ -51,8 +57,8 @@ void* allocator::stack_allocator::allocate(size_t size, size_t alignment) {
     auto alignSize = getAlignedSize(size, alignment);
 
     if (alignSize > m_bufferSize) {
-        throwAllocationError(m_allocator, "Requested size exceeds buffer size(" +
-                                              std::to_string(m_bufferSize) + " bytes");
+        handle_allocation_error("Requested size exceeds buffer size(" +
+                                std::to_string(m_bufferSize) + " bytes");
     }
 
     auto& lastbuffer = buffers.back();

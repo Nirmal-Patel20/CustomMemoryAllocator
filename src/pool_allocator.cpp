@@ -1,6 +1,12 @@
 #include "allocator/Pool_allocator.hpp"
 #include <stdexcept>
 
+#if ALLOCATOR_DEBUG
+#define handle_allocation_error(msg) throwAllocationError(m_allocator, msg)
+#else
+#define handle_allocation_error(msg) return nullptr
+#endif
+
 allocator::pool_allocator::pool_allocator(size_t blockSize, size_t initial_capacity,
                                           size_t alignment, size_t maxPools)
     : m_blockCount(initial_capacity) {
@@ -55,19 +61,14 @@ void* allocator::pool_allocator::allocate(size_t size, [[maybe_unused]] size_t a
     // which simply returns a free block.
 
     if (size > m_blockSize) {
-        throwAllocationError(m_allocator, "Requested size exceeds block size");
+        handle_allocation_error("Requested size exceeds block size");
     }
-
-    if (size == 0) {
-        throw std::invalid_argument(m_allocator + ": Requested size must be greater than zero");
-    }
-
     return allocate();
 }
 
 void* allocator::pool_allocator::allocate() {
     if (!m_ownsMemory) {
-        throwAllocationError(m_allocator, "Allocator has released its memory");
+        handle_allocation_error("Allocator has released its memory");
     }
 
     for (auto& p : pools) {
