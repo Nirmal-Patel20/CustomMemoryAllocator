@@ -11,6 +11,7 @@ class AllocatorInterface {
     virtual size_t getAllocatedSize() const = 0;
     virtual size_t getObjectSize() const = 0;
     virtual void reset() = 0;
+    virtual void setAllocatorName(std::string_view name) = 0;
 
   protected:
     static void* getAlignment(void* ptr, size_t alignment) {
