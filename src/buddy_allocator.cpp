@@ -1,5 +1,6 @@
 #include "allocator/buddy_allocator.hpp"
 #include <cmath>
+#include <cstring>
 
 #if ALLOCATOR_DEBUG
 #define handle_allocation_error(msg) throwAllocationError(m_allocator, msg)
