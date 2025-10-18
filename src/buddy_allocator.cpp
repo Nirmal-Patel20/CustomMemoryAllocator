@@ -12,9 +12,9 @@
 
 allocator::buddy_allocator::buddy_allocator(size_t buffersize) {
     if (buffersize < MIN_CAPACITY || buffersize > MAX_CAPACITY) {
-        throwAllocationError(m_allocator, "Buffer size must be between" +
-                                              std::to_string(MIN_CAPACITY / 1024) + "KB and " +
-                                              std::to_string(MAX_CAPACITY / 1024 * 1024) + "MB");
+        throw std::invalid_argument("Buffer size must be between" +
+                                    std::to_string(MIN_CAPACITY / 1024) + "KB and " +
+                                    std::to_string(MAX_CAPACITY / 1024 * 1024) + "MB");
     }
     m_buffersize = get_power_of_two(buffersize);
 
@@ -29,6 +29,10 @@ void* allocator::buddy_allocator::allocate(size_t size, [[maybe_unused]] size_t 
 
     // this function takes alignment parameter for polymorphism, but alignment is ignored in buddy
     // allocator
+
+    if (!m_ownsMemory) {
+        handle_allocation_error("Allocator has released its memory");
+    }
 
     if (size > m_buffersize) {
         handle_allocation_error("Requested size exceeds buffer size");
@@ -78,9 +82,17 @@ void* allocator::buddy_allocator::allocate(size_t size, [[maybe_unused]] size_t 
 
 void allocator::buddy_allocator::deallocate(void* ptr) {
 
+    if (!ptr) {
+        throw std::invalid_argument(m_allocator + ": Attempted to deallocate a null pointer");
+    }
+
+    if (!m_ownsMemory) {
+        throw std::invalid_argument(m_allocator + ": Allocator has released its memory");
+    }
+
     auto it = allocatedBuddies.find(ptr);
     if (it == allocatedBuddies.end()) {
-        throwAllocationError(m_allocator, "Pointer not allocated by this allocator");
+        throw std::invalid_argument(m_allocator + ": Pointer not allocated by this allocator");
     }
 
     int level = it->second;
