@@ -1,6 +1,8 @@
 #include "allocator/buddy_allocator.hpp"
+#include <cassert>
 #include <cmath>
 #include <cstring>
+#include <iostream>
 
 #if ALLOCATOR_DEBUG
 #define handle_allocation_error(msg) throwAllocationError(m_allocator, msg)
@@ -32,19 +34,28 @@ void* allocator::buddy_allocator::allocate(size_t size, [[maybe_unused]] size_t 
         handle_allocation_error("Requested size exceeds buffer size");
     }
 
+    if (size < MIN_CAPACITY) {
+        handle_allocation_error("Requested size is less than minimum allocation(" +
+                                std::to_string(MIN_CAPACITY) + ") size");
+    }
+
     // Find the appropriate free block
-    int level = get_level(size);
+
+    auto actualSize = get_power_of_two(size);
+    int level = get_level(actualSize);
     Buddy* buddy = get_first_free_buddy(level);
     if (!buddy) {
         // No free block at this level, try to find a larger block and split it
         int nonEmptyLevel = find_non_empty_level(level + 1);
         if (nonEmptyLevel == -1) {
-            handle_allocation_error("Out of memory");
+            handle_allocation_error("No sufficient block available for allocation(" +
+                                    std::to_string(actualSize) + ")");
         }
+
+        Buddy* largerBuddy = nullptr;
 
         // Split blocks down to the desired level
         while (nonEmptyLevel > level) {
-            Buddy* largerBuddy = nullptr;
 
             if (!largerBuddy) {
                 largerBuddy = get_first_free_buddy(nonEmptyLevel);
@@ -143,12 +154,15 @@ void allocator::buddy_allocator::allocate_new_buffer() {
     }
 
     m_buffer.memory = std::make_unique<std::byte[]>(m_buffersize);
+    int level = get_level(m_buffersize);
+
     m_buffer.size = m_buffersize;
     m_buffer.start_address = m_buffer.memory.get();
+    m_buffer.initial_level = level;
+    m_buffer.start_address_int = reinterpret_cast<uintptr_t>(m_buffer.start_address);
     m_ownsMemory = true;
 
     // Initialize the free list with a single large block
-    int level = get_level(m_buffersize);
     Buddy* buddy = reinterpret_cast<Buddy*>(m_buffer.start_address);
     add_to_free_list(buddy, level);
 }
@@ -193,6 +207,8 @@ void allocator::buddy_allocator::remove_from_free_list(Buddy* buddy, int level) 
 
     if (current && current->next_free == buddy) {
         current->next_free = buddy->next_free;
+    } else {
+        throw std::runtime_error("Attempted to remove a buddy not in free list");
     }
 }
 
@@ -220,19 +236,30 @@ int allocator::buddy_allocator::find_non_empty_level(int startLevel) {
 allocator::buddy_allocator::Buddy* allocator::buddy_allocator::split_buddy(Buddy* b, int level) {
     size_t halfSize = get_level_size(level) / 2;
     Buddy* buddy1 = b;
+    assert(halfSize % alignof(Buddy) == 0);
     Buddy* buddy2 = reinterpret_cast<Buddy*>(reinterpret_cast<std::byte*>(b) + halfSize);
-    add_to_free_list(buddy1, level - 1);
-    return buddy2; // return the second half to be added to free list
+    add_to_free_list(buddy2, level - 1);
+    return buddy1; // return the first half to be added to free list
 }
 
 allocator::buddy_allocator::Buddy* allocator::buddy_allocator::find_buddy(Buddy* b, int level) {
-    uintptr_t addr = reinterpret_cast<uintptr_t>(b);
-    size_t blockSize = get_level_size(level);
-    uintptr_t buddyAddr = addr ^ blockSize;
-    if (allocatedBuddies.find(reinterpret_cast<void*>(buddyAddr)) != allocatedBuddies.end()) {
-        return nullptr; // Buddy is allocated
+
+    if (level == m_buffer.initial_level) {
+        return nullptr; // No buddy exists for the largest block
     }
-    return reinterpret_cast<Buddy*>(buddyAddr);
+
+    uintptr_t base = reinterpret_cast<uintptr_t>(m_buffer.start_address);
+    uintptr_t addr = reinterpret_cast<uintptr_t>(b);
+    size_t block_size = get_level_size(level);
+
+    uintptr_t offset = addr - base;
+    uintptr_t buddy_offset = offset ^ block_size;
+
+    if (buddy_offset >= m_buffersize) {
+        return nullptr; // Buddy is out of bounds
+    }
+
+    return reinterpret_cast<Buddy*>(base + buddy_offset);
 }
 
 void allocator::buddy_allocator::try_merge_buddies(Buddy* buddy, int level) {
@@ -241,8 +268,10 @@ void allocator::buddy_allocator::try_merge_buddies(Buddy* buddy, int level) {
         // Merge the buddies
         remove_from_free_list(buddy, level);
         remove_from_free_list(buddyPair, level);
-        add_to_free_list(reinterpret_cast<Buddy*>(std::min(reinterpret_cast<uintptr_t>(buddy),
-                                                           reinterpret_cast<uintptr_t>(buddyPair))),
-                         level + 1);
+
+        Buddy* merged_buddy = std::min(buddy, buddyPair);
+
+        add_to_free_list(merged_buddy, level + 1);
+        try_merge_buddies(merged_buddy, level + 1);
     }
 }

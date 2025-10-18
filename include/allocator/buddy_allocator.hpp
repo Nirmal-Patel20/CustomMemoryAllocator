@@ -58,6 +58,8 @@ class buddy_allocator : public allocator::AllocatorInterface {
         std::unique_ptr<std::byte[]> memory; // Contiguous memory
         size_t size = 0;                     // Total buffer size
         void* start_address = nullptr;       // Starting address of the buffer
+        int initial_level = 0;               // Initial level of the buffer
+        uintptr_t start_address_int = 0;
     } m_buffer;
 
     void allocate_new_buffer();
