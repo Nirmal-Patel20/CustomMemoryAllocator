@@ -38,11 +38,6 @@ void* allocator::buddy_allocator::allocate(size_t size, [[maybe_unused]] size_t 
         handle_allocation_error("Requested size exceeds buffer size");
     }
 
-    if (size < MIN_CAPACITY) {
-        handle_allocation_error("Requested size is less than minimum allocation(" +
-                                std::to_string(MIN_CAPACITY) + ") size");
-    }
-
     // Find the appropriate free block
 
     auto actualSize = get_power_of_two(size);
@@ -186,8 +181,9 @@ int allocator::buddy_allocator::get_level(size_t size) {
 
 size_t allocator::buddy_allocator::get_power_of_two(size_t size) {
     // bit twiddling to get next power of two
-    if (size <= 1)
-        return 1;
+    if (size <= MIN_CAPACITY)
+        return MIN_CAPACITY;
+
     size_t power = 1;
     while (power < size)
         power <<= 1;
