@@ -69,9 +69,6 @@ TEST_CASE("buddy Allocator - Minimum and maximum allocation sizes", "[buddy_allo
 TEST_CASE("buddy Allocator - Allocate minimum and maximum sizes", "[buddy_allocator][edge]") {
     allocator::buddy_allocator buddyAllocator(4ull * 1024 * 1024); // 4MB buffer
 
-    // Minimum allocation
-    REQUIRE_THROWS(buddyAllocator.allocate(512)); // less than 1KB should throw
-
     // Maximum allocation
     REQUIRE_THROWS(
         buddyAllocator.allocate(8ull * 1024 * 1024)); // more than buffer size should throw

@@ -225,7 +225,7 @@ allocator::buddy_allocator::Buddy* allocator::buddy_allocator::get_first_free_bu
         return nullptr;
 
     Buddy* buddy = freeLists[level];
-    freeLists[level] = buddy->next_free;
+    remove_from_free_list(buddy, level);
     return buddy;
 }
 
