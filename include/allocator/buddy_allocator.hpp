@@ -35,6 +35,7 @@ class buddy_allocator : public allocator::AllocatorInterface {
 
     struct Buddy {
         Buddy* next_free = nullptr;
+        int level = -1; // level in buddy system
     };
 
     // freelist for each level

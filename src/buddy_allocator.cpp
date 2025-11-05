@@ -87,7 +87,8 @@ void allocator::buddy_allocator::deallocate(void* ptr) {
 
     auto it = allocatedBuddies.find(ptr);
     if (it == allocatedBuddies.end()) {
-        throw std::invalid_argument(m_allocator + ": Pointer not allocated by this allocator");
+        throw std::invalid_argument(
+            m_allocator + ": Pointer not allocated by this allocator or double free detected");
     }
 
     int level = it->second;
@@ -196,6 +197,7 @@ size_t allocator::buddy_allocator::get_level_size(int level) {
 
 void allocator::buddy_allocator::add_to_free_list(Buddy* buddy, int level) {
     buddy->next_free = freeLists[level];
+    buddy->level = level;
     freeLists[level] = buddy;
 }
 
@@ -251,35 +253,71 @@ allocator::buddy_allocator::Buddy* allocator::buddy_allocator::split_buddy(Buddy
 }
 
 allocator::buddy_allocator::Buddy* allocator::buddy_allocator::find_buddy(Buddy* b, int level) {
-
-    if (level == m_buffer.initial_level) {
-        return nullptr; // No buddy exists for the largest block
+    // No buddy exists for the top-level (largest) block
+    if (level == m_buffer.initial_level || b == nullptr) {
+        return nullptr;
     }
 
     uintptr_t base = reinterpret_cast<uintptr_t>(m_buffer.start_address);
     uintptr_t addr = reinterpret_cast<uintptr_t>(b);
     size_t block_size = get_level_size(level);
 
+    // ensure b is inside the managed buffer
+    if (addr < base || addr >= base + m_buffersize) {
+        return nullptr;
+    }
+
     uintptr_t offset = addr - base;
+
+    // the offset should be aligned to its block size
+    if (offset % block_size != 0) {
+        // Misaligned pointer — likely logic error in caller
+        return nullptr;
+    }
+
+    // Compute buddy offset by toggling the bit for this block
     uintptr_t buddy_offset = offset ^ block_size;
 
+    // Ensure buddy address stays within the buffer
     if (buddy_offset >= m_buffersize) {
-        return nullptr; // Buddy is out of bounds
+        return nullptr;
     }
 
     return reinterpret_cast<Buddy*>(base + buddy_offset);
 }
 
 void allocator::buddy_allocator::try_merge_buddies(Buddy* buddy, int level) {
-    Buddy* buddyPair = find_buddy(buddy, level);
-    if (buddyPair) {
-        // Merge the buddies
-        remove_from_free_list(buddy, level);
-        remove_from_free_list(buddyPair, level);
-
-        Buddy* merged_buddy = std::min(buddy, buddyPair);
-
-        add_to_free_list(merged_buddy, level + 1);
-        try_merge_buddies(merged_buddy, level + 1);
+    if (!buddy) {
+        return; // nothing to do
     }
+
+    Buddy* buddyPair = find_buddy(buddy, level);
+
+    // No valid buddy found → cannot merge
+    if (!buddyPair) {
+        return;
+    }
+
+    // If the buddyPair is allocated, we cannot merge
+    if (allocatedBuddies.find(reinterpret_cast<void*>(buddyPair)) != allocatedBuddies.end()) {
+        return;
+    }
+
+    // If the buddyPair is not at the same level, cannot merge
+    if (buddyPair->level != level) {
+        return; // buddy is not free at the same level
+    }
+
+    // Remove both buddies from their current free list
+    remove_from_free_list(buddy, level);
+    remove_from_free_list(buddyPair, level);
+
+    // Merge: the merged block starts at the lower of the two addresses
+    Buddy* merged_buddy = (buddy < buddyPair) ? buddy : buddyPair;
+
+    // Add the merged block to the next level
+    add_to_free_list(merged_buddy, level + 1);
+
+    // Try merging again at the next higher level
+    try_merge_buddies(merged_buddy, level + 1);
 }
