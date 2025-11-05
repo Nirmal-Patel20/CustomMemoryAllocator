@@ -28,6 +28,7 @@ message(STATUS ">>> Catch2 version: ${Catch2_VERSION} <<<")
 add_executable(benchmarks 
         Pool_allocator_benchmark.cpp
         stack_allocator_benchmark.cpp
+        Buddy_allocator_benchmark.cpp
 )
 
 target_link_libraries(benchmarks 
